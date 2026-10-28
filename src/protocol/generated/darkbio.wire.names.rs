@@ -40,6 +40,13 @@ impl opaque::host_to_ark::Content {
             Self::SlotUploadCancel(..) => "slot_upload_cancel",
             Self::SlotUploadProcess(..) => "slot_upload_process",
             Self::DatasetPaths(..) => "dataset_paths",
+            Self::ExportCreate(..) => "export_create",
+            Self::ExportLoad(..) => "export_load",
+            Self::ExportStart(..) => "export_start",
+            Self::ExportStatus(..) => "export_status",
+            Self::ExportCancel(..) => "export_cancel",
+            Self::ExportResult(..) => "export_result",
+            Self::ExportOutput(..) => "export_output",
             Self::Develop(..) => "develop",
         }
     }
@@ -85,6 +92,13 @@ impl opaque::ark_to_host::Content {
             Self::SlotUploadCancel(..) => "slot_upload_cancel",
             Self::SlotUploadProcess(..) => "slot_upload_process",
             Self::DatasetPaths(..) => "dataset_paths",
+            Self::ExportCreate(..) => "export_create",
+            Self::ExportLoad(..) => "export_load",
+            Self::ExportStart(..) => "export_start",
+            Self::ExportStatus(..) => "export_status",
+            Self::ExportCancel(..) => "export_cancel",
+            Self::ExportResult(..) => "export_result",
+            Self::ExportOutput(..) => "export_output",
             Self::Develop(..) => "develop",
         }
     }

@@ -112,6 +112,82 @@ mod tests {
     use crate::protocol::schema::{self, DeviceInfoRequest, DeviceInfoResponse};
     use crate::protocol::{Error, Message};
 
+    /// Pins the export family's wire tags and checks both envelope directions.
+    #[test]
+    fn test_export_wire_tags() {
+        use prost::Message as _;
+        use schema::{ArkToHost, HostToArk, ark_to_host, host_to_ark};
+
+        let requests = [
+            host_to_ark::Content::ExportCreate(schema::ExportCreateRequest {
+                paths: vec!["v1/genome/rsids/rs671".into()],
+                optional: vec!["v1/genome/genes/ALDH2".into()],
+            }),
+            host_to_ark::Content::ExportLoad(schema::ExportLoadRequest { taskid: 9 }),
+            host_to_ark::Content::ExportStart(schema::ExportStartRequest { taskid: 9 }),
+            host_to_ark::Content::ExportStatus(schema::ExportStatusRequest { taskid: 9 }),
+            host_to_ark::Content::ExportCancel(schema::ExportCancelRequest { taskid: 9 }),
+            host_to_ark::Content::ExportResult(schema::ExportResultRequest { taskid: 9 }),
+            host_to_ark::Content::ExportOutput(schema::ExportOutputRequest {
+                taskid: 9,
+                offset: 262144,
+                size: 262144,
+            }),
+        ];
+        let responses = [
+            ark_to_host::Content::ExportCreate(schema::ExportCreateResponse { taskid: 9 }),
+            ark_to_host::Content::ExportLoad(schema::ExportLoadResponse {}),
+            ark_to_host::Content::ExportStart(schema::ExportStartResponse {}),
+            ark_to_host::Content::ExportStatus(schema::ExportStatusResponse {
+                state: schema::ExportState::AwaitingApproval as i32,
+            }),
+            ark_to_host::Content::ExportCancel(schema::ExportCancelResponse {}),
+            ark_to_host::Content::ExportResult(schema::ExportResultResponse {
+                paths: vec!["v1/genome/rsids/rs671".into()],
+                media: "application/fhir+json; fhirVersion=4.0".into(),
+                bytes: 12345,
+            }),
+            ark_to_host::Content::ExportOutput(schema::ExportOutputResponse {
+                chunk: b"{}".to_vec(),
+            }),
+        ];
+        for (tag, (request, response)) in [0x801, 0x802, 0x803, 0x804, 0x805, 0x806, 0x807]
+            .into_iter()
+            .zip(requests.into_iter().zip(responses))
+        {
+            let request = HostToArk {
+                content: Some(request),
+                ..Default::default()
+            };
+            let response = ArkToHost {
+                content: Some(response),
+                ..Default::default()
+            };
+            let request_bytes = request.encode_to_vec();
+            let response_bytes = response.encode_to_vec();
+            assert_eq!(
+                prost::encoding::decode_key(&mut request_bytes.as_slice())
+                    .unwrap()
+                    .0,
+                tag
+            );
+            assert_eq!(
+                prost::encoding::decode_key(&mut response_bytes.as_slice())
+                    .unwrap()
+                    .0,
+                tag
+            );
+            assert_eq!(
+                HostToArk::decode(request_bytes.as_slice()).unwrap(),
+                request
+            );
+            assert_eq!(
+                ArkToHost::decode(response_bytes.as_slice()).unwrap(),
+                response
+            );
+        }
+    }
+
     /// Checks that extraction rejects a different `Message` variant, even when
     /// its protobuf fields could decode as the requested type.
     #[test]

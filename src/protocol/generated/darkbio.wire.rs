@@ -20,7 +20,7 @@ pub struct HostToArk {
     /// the Ark. The tags are grouped by area, each area with its own range.
     #[prost(
         oneof = "host_to_ark::Content",
-        tags = "256, 257, 258, 259, 260, 513, 514, 515, 516, 517, 769, 770, 771, 772, 773, 774, 1025, 1026, 1027, 1281, 1282, 1283, 1284, 1285, 1286, 1287, 1288, 1289, 1290, 1537, 1538, 1539, 1540, 1541, 1542, 1543, 1544, 1793, 4096"
+        tags = "256, 257, 258, 259, 260, 513, 514, 515, 516, 517, 769, 770, 771, 772, 773, 774, 1025, 1026, 1027, 1281, 1282, 1283, 1284, 1285, 1286, 1287, 1288, 1289, 1290, 1537, 1538, 1539, 1540, 1541, 1542, 1543, 1544, 1793, 2049, 2050, 2051, 2052, 2053, 2054, 2055, 4096"
     )]
     pub content: ::core::option::Option<host_to_ark::Content>,
 }
@@ -144,6 +144,27 @@ pub mod host_to_ark {
         /// Maps every path an app can read, from the dataset view
         #[prost(message, tag = "1793")]
         DatasetPaths(super::DatasetPathsRequest),
+        /// Creates an export task bound to this session
+        #[prost(message, tag = "2049")]
+        ExportCreate(super::ExportCreateRequest),
+        /// Checks the requested grants before asking the owner
+        #[prost(message, tag = "2050")]
+        ExportLoad(super::ExportLoadRequest),
+        /// Asks the owner to send their data to this computer
+        #[prost(message, tag = "2051")]
+        ExportStart(super::ExportStartRequest),
+        /// Checks where the export stands
+        #[prost(message, tag = "2052")]
+        ExportStatus(super::ExportStatusRequest),
+        /// Drops the task and its output
+        #[prost(message, tag = "2053")]
+        ExportCancel(super::ExportCancelRequest),
+        /// Fetches the approved paths and output metadata
+        #[prost(message, tag = "2054")]
+        ExportResult(super::ExportResultRequest),
+        /// Reads the next piece of the export
+        #[prost(message, tag = "2055")]
+        ExportOutput(super::ExportOutputRequest),
         /// Unreleased messages served by development firmware only, carried opaquely
         /// so the public protocol is untouched while they are still under development.
         /// Their schema is private and production Arks refuse the envelope.
@@ -172,7 +193,7 @@ pub struct ArkToHost {
     /// request of its own. The tags are grouped by area, each area with its own range.
     #[prost(
         oneof = "ark_to_host::Content",
-        tags = "256, 257, 258, 259, 260, 513, 514, 515, 516, 517, 769, 770, 771, 772, 773, 774, 1025, 1026, 1027, 1281, 1282, 1283, 1284, 1285, 1286, 1287, 1288, 1289, 1290, 1537, 1538, 1539, 1540, 1541, 1542, 1543, 1544, 1793, 4096"
+        tags = "256, 257, 258, 259, 260, 513, 514, 515, 516, 517, 769, 770, 771, 772, 773, 774, 1025, 1026, 1027, 1281, 1282, 1283, 1284, 1285, 1286, 1287, 1288, 1289, 1290, 1537, 1538, 1539, 1540, 1541, 1542, 1543, 1544, 1793, 2049, 2050, 2051, 2052, 2053, 2054, 2055, 4096"
     )]
     pub content: ::core::option::Option<ark_to_host::Content>,
 }
@@ -296,6 +317,27 @@ pub mod ark_to_host {
         /// Every path an app can read, with its description, format and examples
         #[prost(message, tag = "1793")]
         DatasetPaths(super::DatasetPathsResponse),
+        /// Id of the new export task
+        #[prost(message, tag = "2049")]
+        ExportCreate(super::ExportCreateResponse),
+        /// Acknowledges the checked grants
+        #[prost(message, tag = "2050")]
+        ExportLoad(super::ExportLoadResponse),
+        /// Acknowledges the journaled approval
+        #[prost(message, tag = "2051")]
+        ExportStart(super::ExportStartResponse),
+        /// Where the export stands
+        #[prost(message, tag = "2052")]
+        ExportStatus(super::ExportStatusResponse),
+        /// Acknowledges the dropped task
+        #[prost(message, tag = "2053")]
+        ExportCancel(super::ExportCancelResponse),
+        /// Approved paths and output metadata
+        #[prost(message, tag = "2054")]
+        ExportResult(super::ExportResultResponse),
+        /// Next piece of the export
+        #[prost(message, tag = "2055")]
+        ExportOutput(super::ExportOutputResponse),
         /// Unreleased messages emitted by development firmware only, in response to
         /// a develop request, carried opaquely so the public protocol is untouched
         /// while they are still under development. Their schema is private.
@@ -1108,6 +1150,113 @@ pub struct DatasetPath {
     #[prost(string, tag = "9")]
     pub wording: ::prost::alloc::string::String,
 }
+/// ExportCreateRequest creates a session-bound task without reading personal data.
+/// Required public dataset paths are gates; every other path must name a place.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ExportCreateRequest {
+    /// Required places and public dataset gates
+    #[prost(string, repeated, tag = "1")]
+    pub paths: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Places the owner may leave out
+    #[prost(string, repeated, tag = "2")]
+    pub optional: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+/// ExportCreateResponse names the task used by every subsequent export request.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ExportCreateResponse {
+    /// Id of the created task
+    #[prost(uint64, tag = "1")]
+    pub taskid: u64,
+}
+/// ExportLoadRequest checks public availability and reserves approval room.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ExportLoadRequest {
+    /// Task to load
+    #[prost(uint64, tag = "1")]
+    pub taskid: u64,
+}
+/// ExportLoadResponse acknowledges the loaded task, ready to start.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ExportLoadResponse {}
+/// ExportStartRequest asks the owner to approve sending their data to this host.
+/// It waits for the decision; an approval is journaled before the answer and build.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ExportStartRequest {
+    /// Loaded task to start
+    #[prost(uint64, tag = "1")]
+    pub taskid: u64,
+}
+/// ExportStartResponse acknowledges the journaled approval, with building pending.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ExportStartResponse {}
+/// ExportStatusRequest checks the task without consuming its result.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ExportStatusRequest {
+    /// Task to check
+    #[prost(uint64, tag = "1")]
+    pub taskid: u64,
+}
+/// ExportStatusResponse reports the current state.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ExportStatusResponse {
+    /// Where the task stands
+    #[prost(enumeration = "ExportState", tag = "1")]
+    pub state: i32,
+}
+/// ExportCancelRequest drops the task, closes its approval and discards its output.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ExportCancelRequest {
+    /// Task to cancel
+    #[prost(uint64, tag = "1")]
+    pub taskid: u64,
+}
+/// ExportCancelResponse acknowledges the canceled task.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ExportCancelResponse {}
+/// ExportResultRequest fetches metadata for a done task before reading its output.
+/// A terminal failure returns its error once and closes the task.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ExportResultRequest {
+    /// Task whose result is requested
+    #[prost(uint64, tag = "1")]
+    pub taskid: u64,
+}
+/// ExportResultResponse identifies the approved places, including unanswered ones.
+/// Public gates are omitted. The metadata repeats until the output is consumed.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ExportResultResponse {
+    /// Approved personal paths in request order
+    #[prost(string, repeated, tag = "1")]
+    pub paths: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Media type, application/fhir+json; fhirVersion=4.0
+    #[prost(string, tag = "2")]
+    pub media: ::prost::alloc::string::String,
+    /// Total output size in bytes
+    #[prost(uint64, tag = "3")]
+    pub bytes: u64,
+}
+/// ExportOutputRequest reads the compact FHIR Bundle once, in order.
+/// Size is 1 through 256 KiB. An invalid range advances nothing. The last chunk
+/// closes the task after its sent journal entry, dropping the output from memory.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ExportOutputRequest {
+    /// Task whose metadata has been fetched
+    #[prost(uint64, tag = "1")]
+    pub taskid: u64,
+    /// Next unread byte, starting at zero
+    #[prost(uint64, tag = "2")]
+    pub offset: u64,
+    /// Maximum bytes to return
+    #[prost(uint64, tag = "3")]
+    pub size: u64,
+}
+/// ExportOutputResponse carries the next chunk, shorter only at the output's end.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ExportOutputResponse {
+    /// Next output bytes
+    #[prost(bytes = "vec", tag = "1")]
+    pub chunk: ::prost::alloc::vec::Vec<u8>,
+}
 /// ReservedErrors names the assigned protocol-wide errors in the reserved range
 /// 0x00 to 0xff (inclusive). No code in this range may be assigned a request
 /// specific meaning. Assigned codes must not be repurposed.
@@ -1398,6 +1547,150 @@ impl SlotConfidence {
             "SLOT_CONFIDENCE_LOW" => Some(Self::Low),
             "SLOT_CONFIDENCE_MID" => Some(Self::Mid),
             "SLOT_CONFIDENCE_HIGH" => Some(Self::High),
+            _ => None,
+        }
+    }
+}
+/// ExportErrors assigns the request-specific errors of the export family in
+/// 0x821-0x82f. Approval declines and invalid decisions use UNAUTHORIZED,
+/// timeouts use UNCONFIRMED and undelivered questions use UNDELIVERED.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum ExportErrors {
+    /// Never sent, an unset error
+    Unspecified = 0,
+    /// Invalid, repeated, nested or excessive paths
+    RequestInvalid = 2081,
+    /// Path absent from the registry
+    PathUnknown = 2082,
+    /// Known path outside the exportable places and gates
+    PathNotExportable = 2083,
+    /// Owner storage is locked
+    StorageLocked = 2084,
+    /// Required path unavailable
+    RequiredUnavailable = 2085,
+    /// Public data could not be checked
+    GrantCheckFailed = 2086,
+    /// Approval record exceeds 256 KiB
+    RecordTooLarge = 2087,
+    /// Task or approval capacity is occupied
+    Busy = 2088,
+    /// Span, entry or output limit exceeded
+    Limit = 2089,
+    /// Data changed, conflicted or could not be read
+    DataFailed = 2090,
+    /// Required journal entry could not be written
+    JournalFailed = 2091,
+    /// Task canceled before its pending start completed
+    Canceled = 2092,
+    /// Task absent from this host session
+    TaskUnknown = 2093,
+    /// Task in the wrong state for this request
+    TaskState = 2094,
+    /// Offset or chunk size invalid
+    OutputRange = 2095,
+}
+impl ExportErrors {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "EXPORT_ERRORS_UNSPECIFIED",
+            Self::RequestInvalid => "EXPORT_ERRORS_REQUEST_INVALID",
+            Self::PathUnknown => "EXPORT_ERRORS_PATH_UNKNOWN",
+            Self::PathNotExportable => "EXPORT_ERRORS_PATH_NOT_EXPORTABLE",
+            Self::StorageLocked => "EXPORT_ERRORS_STORAGE_LOCKED",
+            Self::RequiredUnavailable => "EXPORT_ERRORS_REQUIRED_UNAVAILABLE",
+            Self::GrantCheckFailed => "EXPORT_ERRORS_GRANT_CHECK_FAILED",
+            Self::RecordTooLarge => "EXPORT_ERRORS_RECORD_TOO_LARGE",
+            Self::Busy => "EXPORT_ERRORS_BUSY",
+            Self::Limit => "EXPORT_ERRORS_LIMIT",
+            Self::DataFailed => "EXPORT_ERRORS_DATA_FAILED",
+            Self::JournalFailed => "EXPORT_ERRORS_JOURNAL_FAILED",
+            Self::Canceled => "EXPORT_ERRORS_CANCELED",
+            Self::TaskUnknown => "EXPORT_ERRORS_TASK_UNKNOWN",
+            Self::TaskState => "EXPORT_ERRORS_TASK_STATE",
+            Self::OutputRange => "EXPORT_ERRORS_OUTPUT_RANGE",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "EXPORT_ERRORS_UNSPECIFIED" => Some(Self::Unspecified),
+            "EXPORT_ERRORS_REQUEST_INVALID" => Some(Self::RequestInvalid),
+            "EXPORT_ERRORS_PATH_UNKNOWN" => Some(Self::PathUnknown),
+            "EXPORT_ERRORS_PATH_NOT_EXPORTABLE" => Some(Self::PathNotExportable),
+            "EXPORT_ERRORS_STORAGE_LOCKED" => Some(Self::StorageLocked),
+            "EXPORT_ERRORS_REQUIRED_UNAVAILABLE" => Some(Self::RequiredUnavailable),
+            "EXPORT_ERRORS_GRANT_CHECK_FAILED" => Some(Self::GrantCheckFailed),
+            "EXPORT_ERRORS_RECORD_TOO_LARGE" => Some(Self::RecordTooLarge),
+            "EXPORT_ERRORS_BUSY" => Some(Self::Busy),
+            "EXPORT_ERRORS_LIMIT" => Some(Self::Limit),
+            "EXPORT_ERRORS_DATA_FAILED" => Some(Self::DataFailed),
+            "EXPORT_ERRORS_JOURNAL_FAILED" => Some(Self::JournalFailed),
+            "EXPORT_ERRORS_CANCELED" => Some(Self::Canceled),
+            "EXPORT_ERRORS_TASK_UNKNOWN" => Some(Self::TaskUnknown),
+            "EXPORT_ERRORS_TASK_STATE" => Some(Self::TaskState),
+            "EXPORT_ERRORS_OUTPUT_RANGE" => Some(Self::OutputRange),
+            _ => None,
+        }
+    }
+}
+/// ExportState describes the export's progress and terminal outcomes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum ExportState {
+    /// Never sent, an unset state
+    Unspecified = 0,
+    /// Request stored, not yet loaded
+    Created = 1,
+    /// Grants checked and approval room reserved
+    Loaded = 2,
+    /// Owner deciding on the phone
+    AwaitingApproval = 3,
+    /// Approved output being built
+    Building = 4,
+    /// Owner declined
+    Declined = 5,
+    /// Approval window expired
+    TimedOut = 6,
+    /// Task failed, result returns the cause
+    Failed = 7,
+    /// Output ready to fetch
+    Done = 8,
+}
+impl ExportState {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "EXPORT_STATE_UNSPECIFIED",
+            Self::Created => "EXPORT_STATE_CREATED",
+            Self::Loaded => "EXPORT_STATE_LOADED",
+            Self::AwaitingApproval => "EXPORT_STATE_AWAITING_APPROVAL",
+            Self::Building => "EXPORT_STATE_BUILDING",
+            Self::Declined => "EXPORT_STATE_DECLINED",
+            Self::TimedOut => "EXPORT_STATE_TIMED_OUT",
+            Self::Failed => "EXPORT_STATE_FAILED",
+            Self::Done => "EXPORT_STATE_DONE",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "EXPORT_STATE_UNSPECIFIED" => Some(Self::Unspecified),
+            "EXPORT_STATE_CREATED" => Some(Self::Created),
+            "EXPORT_STATE_LOADED" => Some(Self::Loaded),
+            "EXPORT_STATE_AWAITING_APPROVAL" => Some(Self::AwaitingApproval),
+            "EXPORT_STATE_BUILDING" => Some(Self::Building),
+            "EXPORT_STATE_DECLINED" => Some(Self::Declined),
+            "EXPORT_STATE_TIMED_OUT" => Some(Self::TimedOut),
+            "EXPORT_STATE_FAILED" => Some(Self::Failed),
+            "EXPORT_STATE_DONE" => Some(Self::Done),
             _ => None,
         }
     }

@@ -20,7 +20,7 @@ pub struct HostToArk {
     /// the Ark. The tags are grouped by area, each area with its own range.
     #[prost(
         oneof = "host_to_ark::Content",
-        tags = "256, 257, 258, 259, 260, 513, 514, 515, 516, 517, 769, 770, 771, 772, 773, 774, 1025, 1026, 1027, 1281, 1282, 1283, 1284, 1285, 1286, 1287, 1288, 1289, 1290, 1537, 1538, 1539, 1540, 1541, 1542, 1543, 1544, 1793, 4096"
+        tags = "256, 257, 258, 259, 260, 513, 514, 515, 516, 517, 769, 770, 771, 772, 773, 774, 1025, 1026, 1027, 1281, 1282, 1283, 1284, 1285, 1286, 1287, 1288, 1289, 1290, 1537, 1538, 1539, 1540, 1541, 1542, 1543, 1544, 1793, 2049, 2050, 2051, 2052, 2053, 2054, 2055, 4096"
     )]
     pub content: ::core::option::Option<host_to_ark::Content>,
 }
@@ -144,6 +144,27 @@ pub mod host_to_ark {
         /// Maps every path an app can read, from the dataset view
         #[prost(bytes, tag = "1793")]
         DatasetPaths(::prost::bytes::Bytes),
+        /// Creates an export task bound to this session
+        #[prost(bytes, tag = "2049")]
+        ExportCreate(::prost::bytes::Bytes),
+        /// Checks the requested grants before asking the owner
+        #[prost(bytes, tag = "2050")]
+        ExportLoad(::prost::bytes::Bytes),
+        /// Asks the owner to send their data to this computer
+        #[prost(bytes, tag = "2051")]
+        ExportStart(::prost::bytes::Bytes),
+        /// Checks where the export stands
+        #[prost(bytes, tag = "2052")]
+        ExportStatus(::prost::bytes::Bytes),
+        /// Drops the task and its output
+        #[prost(bytes, tag = "2053")]
+        ExportCancel(::prost::bytes::Bytes),
+        /// Fetches the approved paths and output metadata
+        #[prost(bytes, tag = "2054")]
+        ExportResult(::prost::bytes::Bytes),
+        /// Reads the next piece of the export
+        #[prost(bytes, tag = "2055")]
+        ExportOutput(::prost::bytes::Bytes),
         /// Unreleased messages served by development firmware only, carried opaquely
         /// so the public protocol is untouched while they are still under development.
         /// Their schema is private and production Arks refuse the envelope.
@@ -172,7 +193,7 @@ pub struct ArkToHost {
     /// request of its own. The tags are grouped by area, each area with its own range.
     #[prost(
         oneof = "ark_to_host::Content",
-        tags = "256, 257, 258, 259, 260, 513, 514, 515, 516, 517, 769, 770, 771, 772, 773, 774, 1025, 1026, 1027, 1281, 1282, 1283, 1284, 1285, 1286, 1287, 1288, 1289, 1290, 1537, 1538, 1539, 1540, 1541, 1542, 1543, 1544, 1793, 4096"
+        tags = "256, 257, 258, 259, 260, 513, 514, 515, 516, 517, 769, 770, 771, 772, 773, 774, 1025, 1026, 1027, 1281, 1282, 1283, 1284, 1285, 1286, 1287, 1288, 1289, 1290, 1537, 1538, 1539, 1540, 1541, 1542, 1543, 1544, 1793, 2049, 2050, 2051, 2052, 2053, 2054, 2055, 4096"
     )]
     pub content: ::core::option::Option<ark_to_host::Content>,
 }
@@ -296,6 +317,27 @@ pub mod ark_to_host {
         /// Every path an app can read, with its description, format and examples
         #[prost(bytes, tag = "1793")]
         DatasetPaths(::prost::bytes::Bytes),
+        /// Id of the new export task
+        #[prost(bytes, tag = "2049")]
+        ExportCreate(::prost::bytes::Bytes),
+        /// Acknowledges the checked grants
+        #[prost(bytes, tag = "2050")]
+        ExportLoad(::prost::bytes::Bytes),
+        /// Acknowledges the journaled approval
+        #[prost(bytes, tag = "2051")]
+        ExportStart(::prost::bytes::Bytes),
+        /// Where the export stands
+        #[prost(bytes, tag = "2052")]
+        ExportStatus(::prost::bytes::Bytes),
+        /// Acknowledges the dropped task
+        #[prost(bytes, tag = "2053")]
+        ExportCancel(::prost::bytes::Bytes),
+        /// Approved paths and output metadata
+        #[prost(bytes, tag = "2054")]
+        ExportResult(::prost::bytes::Bytes),
+        /// Next piece of the export
+        #[prost(bytes, tag = "2055")]
+        ExportOutput(::prost::bytes::Bytes),
         /// Unreleased messages emitted by development firmware only, in response to
         /// a develop request, carried opaquely so the public protocol is untouched
         /// while they are still under development. Their schema is private.

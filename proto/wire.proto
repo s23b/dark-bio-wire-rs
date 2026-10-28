@@ -86,6 +86,16 @@ message HostToArk {
 
     DatasetPathsRequest dataset_paths = 0x701; // Maps every path an app can read, from the dataset view
 
+    // Export messages, reserved range 0x801-0x900
+
+    ExportCreateRequest export_create = 0x801; // Creates an export task bound to this session
+    ExportLoadRequest   export_load = 0x802;   // Checks the requested grants before asking the owner
+    ExportStartRequest  export_start = 0x803;  // Asks the owner to send their data to this computer
+    ExportStatusRequest export_status = 0x804; // Checks where the export stands
+    ExportCancelRequest export_cancel = 0x805; // Drops the task and its output
+    ExportResultRequest export_result = 0x806; // Fetches the approved paths and output metadata
+    ExportOutputRequest export_output = 0x807; // Reads the next piece of the export
+
     // Unreleased messages served by development firmware only, carried opaquely
     // so the public protocol is untouched while they are still under development.
     // Their schema is private and production Arks refuse the envelope.
@@ -170,6 +180,16 @@ message ArkToHost {
     // Dataset messages, reserved range 0x701-0x800
 
     DatasetPathsResponse dataset_paths = 0x701; // Every path an app can read, with its description, format and examples
+
+    // Export messages, reserved range 0x801-0x900
+
+    ExportCreateResponse export_create = 0x801; // Id of the new export task
+    ExportLoadResponse   export_load = 0x802;   // Acknowledges the checked grants
+    ExportStartResponse  export_start = 0x803;  // Acknowledges the journaled approval
+    ExportStatusResponse export_status = 0x804; // Where the export stands
+    ExportCancelResponse export_cancel = 0x805; // Acknowledges the dropped task
+    ExportResultResponse export_result = 0x806; // Approved paths and output metadata
+    ExportOutputResponse export_output = 0x807; // Next piece of the export
 
     // Unreleased messages emitted by development firmware only, in response to
     // a develop request, carried opaquely so the public protocol is untouched
@@ -840,4 +860,110 @@ message DatasetPath {
   repeated string examples  = 7; // Complete example values, most typical first
   bool            public    = 8; // Whether a grant reads nothing about the owner's DNA, for grantable paths
   string          wording   = 9; // Template wording a grant to the owner, for grantable paths
+}
+
+
+// ExportErrors assigns the request-specific errors of the export family in
+// 0x821-0x82f. Approval declines and invalid decisions use UNAUTHORIZED,
+// timeouts use UNCONFIRMED and undelivered questions use UNDELIVERED.
+enum ExportErrors {
+  EXPORT_ERRORS_UNSPECIFIED = 0; // Never sent, an unset error
+  EXPORT_ERRORS_REQUEST_INVALID = 0x821; // Invalid, repeated, nested or excessive paths
+  EXPORT_ERRORS_PATH_UNKNOWN = 0x822; // Path absent from the registry
+  EXPORT_ERRORS_PATH_NOT_EXPORTABLE = 0x823; // Known path outside the exportable places and gates
+  EXPORT_ERRORS_STORAGE_LOCKED = 0x824; // Owner storage is locked
+  EXPORT_ERRORS_REQUIRED_UNAVAILABLE = 0x825; // Required path unavailable
+  EXPORT_ERRORS_GRANT_CHECK_FAILED = 0x826; // Public data could not be checked
+  EXPORT_ERRORS_RECORD_TOO_LARGE = 0x827; // Approval record exceeds 256 KiB
+  EXPORT_ERRORS_BUSY = 0x828; // Task or approval capacity is occupied
+  EXPORT_ERRORS_LIMIT = 0x829; // Span, entry or output limit exceeded
+  EXPORT_ERRORS_DATA_FAILED = 0x82a; // Data changed, conflicted or could not be read
+  EXPORT_ERRORS_JOURNAL_FAILED = 0x82b; // Required journal entry could not be written
+  EXPORT_ERRORS_CANCELED = 0x82c; // Task canceled before its pending start completed
+  EXPORT_ERRORS_TASK_UNKNOWN = 0x82d; // Task absent from this host session
+  EXPORT_ERRORS_TASK_STATE = 0x82e; // Task in the wrong state for this request
+  EXPORT_ERRORS_OUTPUT_RANGE = 0x82f; // Offset or chunk size invalid
+}
+
+// ExportCreateRequest creates a session-bound task without reading personal data.
+// Required public dataset paths are gates; every other path must name a place.
+message ExportCreateRequest {
+  repeated string paths = 1; // Required places and public dataset gates
+  repeated string optional = 2; // Places the owner may leave out
+}
+// ExportCreateResponse names the task used by every subsequent export request.
+message ExportCreateResponse {
+  uint64 taskid = 1; // Id of the created task
+}
+
+// ExportLoadRequest checks public availability and reserves approval room.
+message ExportLoadRequest {
+  uint64 taskid = 1; // Task to load
+}
+// ExportLoadResponse acknowledges the loaded task, ready to start.
+message ExportLoadResponse {
+}
+
+// ExportStartRequest asks the owner to approve sending their data to this host.
+// It waits for the decision; an approval is journaled before the answer and build.
+message ExportStartRequest {
+  uint64 taskid = 1; // Loaded task to start
+}
+// ExportStartResponse acknowledges the journaled approval, with building pending.
+message ExportStartResponse {
+}
+
+// ExportStatusRequest checks the task without consuming its result.
+message ExportStatusRequest {
+  uint64 taskid = 1; // Task to check
+}
+// ExportState describes the export's progress and terminal outcomes.
+enum ExportState {
+  EXPORT_STATE_UNSPECIFIED = 0; // Never sent, an unset state
+  EXPORT_STATE_CREATED = 1; // Request stored, not yet loaded
+  EXPORT_STATE_LOADED = 2; // Grants checked and approval room reserved
+  EXPORT_STATE_AWAITING_APPROVAL = 3; // Owner deciding on the phone
+  EXPORT_STATE_BUILDING = 4; // Approved output being built
+  EXPORT_STATE_DECLINED = 5; // Owner declined
+  EXPORT_STATE_TIMED_OUT = 6; // Approval window expired
+  EXPORT_STATE_FAILED = 7; // Task failed, result returns the cause
+  EXPORT_STATE_DONE = 8; // Output ready to fetch
+}
+// ExportStatusResponse reports the current state.
+message ExportStatusResponse {
+  ExportState state = 1; // Where the task stands
+}
+
+// ExportCancelRequest drops the task, closes its approval and discards its output.
+message ExportCancelRequest {
+  uint64 taskid = 1; // Task to cancel
+}
+// ExportCancelResponse acknowledges the canceled task.
+message ExportCancelResponse {
+}
+
+// ExportResultRequest fetches metadata for a done task before reading its output.
+// A terminal failure returns its error once and closes the task.
+message ExportResultRequest {
+  uint64 taskid = 1; // Task whose result is requested
+}
+// ExportResultResponse identifies the approved places, including unanswered ones.
+// Public gates are omitted. The metadata repeats until the output is consumed.
+message ExportResultResponse {
+  repeated string paths = 1; // Approved personal paths in request order
+  string media = 2; // Media type, application/fhir+json; fhirVersion=4.0
+  uint64 bytes = 3; // Total output size in bytes
+}
+
+// ExportOutputRequest reads the compact FHIR Bundle once, in order.
+// Size is 1 through 256 KiB. An invalid range advances nothing. The last chunk
+// closes the task after its sent journal entry, dropping the output from memory.
+message ExportOutputRequest {
+  uint64 taskid = 1; // Task whose metadata has been fetched
+  uint64 offset = 2; // Next unread byte, starting at zero
+  uint64 size = 3; // Maximum bytes to return
+}
+// ExportOutputResponse carries the next chunk, shorter only at the output's end.
+message ExportOutputResponse {
+  bytes chunk = 1; // Next output bytes
 }
