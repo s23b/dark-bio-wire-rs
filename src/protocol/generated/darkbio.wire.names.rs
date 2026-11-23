@@ -40,6 +40,13 @@ impl opaque::host_to_ark::Content {
             Self::SlotUploadCancel(..) => "slot_upload_cancel",
             Self::SlotUploadProcess(..) => "slot_upload_process",
             Self::DatasetPaths(..) => "dataset_paths",
+            Self::HealthImportStart(..) => "health_import_start",
+            Self::HealthImportChunk(..) => "health_import_chunk",
+            Self::HealthImportCancel(..) => "health_import_cancel",
+            Self::HealthImportProcess(..) => "health_import_process",
+            Self::HealthList(..) => "health_list",
+            Self::HealthDelete(..) => "health_delete",
+            Self::HealthDetails(..) => "health_details",
             Self::Develop(..) => "develop",
         }
     }
@@ -85,6 +92,13 @@ impl opaque::ark_to_host::Content {
             Self::SlotUploadCancel(..) => "slot_upload_cancel",
             Self::SlotUploadProcess(..) => "slot_upload_process",
             Self::DatasetPaths(..) => "dataset_paths",
+            Self::HealthImportStart(..) => "health_import_start",
+            Self::HealthImportChunk(..) => "health_import_chunk",
+            Self::HealthImportCancel(..) => "health_import_cancel",
+            Self::HealthImportProcess(..) => "health_import_process",
+            Self::HealthList(..) => "health_list",
+            Self::HealthDelete(..) => "health_delete",
+            Self::HealthDetails(..) => "health_details",
             Self::Develop(..) => "develop",
         }
     }

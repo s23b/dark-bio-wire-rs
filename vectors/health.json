@@ -1,0 +1,287 @@
+{
+  "cases": [
+    {
+      "accepted": true,
+      "direction": "host_to_ark",
+      "hex": "08018a90010510021a017b",
+      "name": "start-request"
+    },
+    {
+      "accepted": true,
+      "direction": "ark_to_host",
+      "hex": "08018a9001020807",
+      "name": "start-approved"
+    },
+    {
+      "accepted": true,
+      "direction": "host_to_ark",
+      "hex": "080192900105080712017d",
+      "name": "chunk-request"
+    },
+    {
+      "accepted": true,
+      "direction": "ark_to_host",
+      "hex": "080192900100",
+      "name": "chunk-accepted"
+    },
+    {
+      "accepted": true,
+      "direction": "host_to_ark",
+      "hex": "08019a9001020807",
+      "name": "cancel-request"
+    },
+    {
+      "accepted": true,
+      "direction": "ark_to_host",
+      "hex": "08019a900100",
+      "name": "cancel-accepted"
+    },
+    {
+      "accepted": true,
+      "direction": "host_to_ark",
+      "hex": "0801a29001020807",
+      "name": "process-request"
+    },
+    {
+      "accepted": true,
+      "direction": "ark_to_host",
+      "hex": "0801a29001050801108827",
+      "name": "process-processing"
+    },
+    {
+      "accepted": true,
+      "direction": "ark_to_host",
+      "hex": "0801a2900139080210904e22320a10000102030405060708090a0b0c0d0e0f102a1801220e08011002180320042805300638072802300338044204080a1014",
+      "name": "process-done"
+    },
+    {
+      "accepted": true,
+      "direction": "host_to_ark",
+      "hex": "0801aa900100",
+      "name": "list-request"
+    },
+    {
+      "accepted": true,
+      "direction": "ark_to_host",
+      "hex": "0801aa900100",
+      "name": "list-empty"
+    },
+    {
+      "accepted": true,
+      "direction": "ark_to_host",
+      "hex": "0801aa9001180a160a10000102030405060708090a0b0c0d0e0f102a1801",
+      "name": "list-bundle"
+    },
+    {
+      "accepted": true,
+      "direction": "ark_to_host",
+      "hex": "0801aa9001180a160a10000102030405060708090a0b0c0d0e0f102a1802",
+      "name": "list-ndjson"
+    },
+    {
+      "accepted": true,
+      "direction": "ark_to_host",
+      "hex": "0801aa9001180a160a10000102030405060708090a0b0c0d0e0f102a1803",
+      "name": "list-single-resource"
+    },
+    {
+      "accepted": true,
+      "direction": "host_to_ark",
+      "hex": "0801b29001120a10000102030405060708090a0b0c0d0e0f",
+      "name": "delete-request"
+    },
+    {
+      "accepted": true,
+      "direction": "ark_to_host",
+      "hex": "0801b2900100",
+      "name": "delete-accepted"
+    },
+    {
+      "accepted": true,
+      "direction": "host_to_ark",
+      "hex": "0801ba900100",
+      "name": "details-request"
+    },
+    {
+      "accepted": true,
+      "direction": "host_to_ark",
+      "hex": "0801ba9001020801",
+      "name": "details-protected-request"
+    },
+    {
+      "accepted": true,
+      "direction": "ark_to_host",
+      "hex": "0801ba90015608781a520a10000102030405060708090a0b0c0d0e0f1005182a204028203204080a10143a240802120b75726e3a6578616d706c651a014122064b696e64204128033204080a1014380240024a080801100218032001",
+      "name": "details-counts-only-protected"
+    },
+    {
+      "accepted": true,
+      "direction": "ark_to_host",
+      "hex": "0801ba90018201087810011a7c0a10000102030405060708090a0b0c0d0e0f1005182a204028203204080a10143a240802120b75726e3a6578616d706c651a014122064b696e64204128033204080a101438023a280802120b75726e3a6578616d706c651a014222064b696e64204228023204080a101438014202030540024a080801100218032001",
+      "name": "details-protected-kinds"
+    },
+    {
+      "accepted": true,
+      "direction": "ark_to_host",
+      "hex": "0801ba9001020801",
+      "name": "details-empty"
+    },
+    {
+      "accepted": true,
+      "direction": "ark_to_host",
+      "hex": "0801ba900100",
+      "name": "details-expired"
+    },
+    {
+      "accepted": true,
+      "direction": "ark_to_host",
+      "hex": "0801a290010408031863",
+      "name": "process-unknown-failure-code"
+    },
+    {
+      "accepted": false,
+      "direction": "host_to_ark",
+      "hex": "08018a90010510021a027b",
+      "name": "start-truncated-chunk"
+    },
+    {
+      "accepted": false,
+      "direction": "ark_to_host",
+      "hex": "0801a29001050802220208",
+      "name": "process-truncated-summary"
+    },
+    {
+      "accepted": false,
+      "direction": "ark_to_host",
+      "hex": "0801a290010a08031a066661696c6564",
+      "name": "process-failure-is-not-text"
+    },
+    {
+      "accepted": false,
+      "direction": "ark_to_host",
+      "hex": "0801ba9001071a051203616263",
+      "name": "details-import-name-is-not-text"
+    },
+    {
+      "accepted": false,
+      "direction": "ark_to_host",
+      "hex": "0801ba9001071a053a032201ff",
+      "name": "details-invalid-kind-name"
+    },
+    {
+      "accepted": false,
+      "direction": "host_to_ark",
+      "hex": "0801b29001030a1000",
+      "name": "delete-truncated-id"
+    },
+    {
+      "accepted": false,
+      "direction": "ark_to_host",
+      "hex": "0801120208058a9001020807",
+      "name": "approval-error-with-content"
+    },
+    {
+      "accepted": true,
+      "direction": "ark_to_host",
+      "hex": "0801a290010408031801",
+      "name": "not-fhir"
+    },
+    {
+      "accepted": true,
+      "direction": "ark_to_host",
+      "hex": "0801a290010408031802",
+      "name": "several-patients"
+    },
+    {
+      "accepted": true,
+      "direction": "ark_to_host",
+      "hex": "0801a290010408031803",
+      "name": "already-imported"
+    },
+    {
+      "accepted": true,
+      "direction": "ark_to_host",
+      "hex": "0801a290010408031804",
+      "name": "over-limit"
+    },
+    {
+      "accepted": true,
+      "direction": "ark_to_host",
+      "hex": "0801a290010408031805",
+      "name": "storage-failed"
+    },
+    {
+      "accepted": true,
+      "direction": "ark_to_host",
+      "hex": "080112020805",
+      "name": "approval-declined"
+    },
+    {
+      "accepted": true,
+      "direction": "ark_to_host",
+      "hex": "080112020806",
+      "name": "approval-expired"
+    },
+    {
+      "accepted": true,
+      "direction": "ark_to_host",
+      "hex": "080112020807",
+      "name": "approval-undelivered"
+    },
+    {
+      "accepted": true,
+      "direction": "ark_to_host",
+      "hex": "08011203088112",
+      "name": "request-invalid"
+    },
+    {
+      "accepted": true,
+      "direction": "ark_to_host",
+      "hex": "08011203088212",
+      "name": "storage-locked"
+    },
+    {
+      "accepted": true,
+      "direction": "ark_to_host",
+      "hex": "08011203088312",
+      "name": "busy"
+    },
+    {
+      "accepted": true,
+      "direction": "ark_to_host",
+      "hex": "08011203088412",
+      "name": "session-unknown"
+    },
+    {
+      "accepted": true,
+      "direction": "ark_to_host",
+      "hex": "08011203088512",
+      "name": "session-state"
+    },
+    {
+      "accepted": true,
+      "direction": "ark_to_host",
+      "hex": "08011203088612",
+      "name": "upload-incomplete"
+    },
+    {
+      "accepted": true,
+      "direction": "ark_to_host",
+      "hex": "08011203088712",
+      "name": "import-unknown"
+    },
+    {
+      "accepted": true,
+      "direction": "ark_to_host",
+      "hex": "08011203088812",
+      "name": "storage-error"
+    },
+    {
+      "accepted": true,
+      "direction": "ark_to_host",
+      "hex": "08011203088912",
+      "name": "response-limit"
+    }
+  ],
+  "version": 1
+}

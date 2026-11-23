@@ -8,6 +8,10 @@ FUZZ_TIME ?= 180
 FUZZ_JOBS ?= $(shell nproc 2>/dev/null || sysctl -n hw.ncpu)
 FUZZ_SANITIZER ?= none
 
+# Scenario runner for seeds and vectors. Set to `cargo test --locked --offline`
+# when nextest is unavailable.
+TEST_RUNNER ?= cargo nextest run --status-level fail --final-status-level fail
+
 # Build options of the fuzz runs. -O drops the debug assertions and overflow
 # checks cargo-fuzz forces on every crate, leaving them to the profiles in
 # fuzz/Cargo.toml, which keep them for the wire alone.
@@ -49,7 +53,7 @@ coverage:
 # without seeds means a name drifted from the binary.
 fuzz-seeds:
 	rm -rf fuzz/seeds
-	WIRE_SEEDS=$(CURDIR)/fuzz/seeds cargo nextest run --features fuzz --status-level fail --final-status-level fail
+	WIRE_SEEDS=$(CURDIR)/fuzz/seeds $(TEST_RUNNER) --features fuzz
 	for target in $$(cargo +nightly fuzz list); do \
 		test -d fuzz/seeds/$$target || { echo "no seeds for $$target"; exit 1; }; \
 	done
@@ -83,7 +87,9 @@ fuzz-loop:
 vectors:
 	rm -rf vectors/client
 	$(FUZZ_ENV) CARGO_TARGET_DIR=target/vectors \
-		WIRE_VECTORS=$(CURDIR)/vectors cargo nextest run --features fuzz --status-level fail --final-status-level fail mock::server
+		WIRE_VECTORS=$(CURDIR)/vectors $(TEST_RUNNER) --features fuzz mock::server
+	$(FUZZ_ENV) CARGO_TARGET_DIR=target/vectors \
+		WIRE_VECTORS=$(CURDIR)/vectors $(TEST_RUNNER) --features fuzz test_health_wire_vectors
 
 # generate writes the protobuf bindings and the message conversions derived
 # from the schema into src/protocol/generated, formatted like handwritten code.

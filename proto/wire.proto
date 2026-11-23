@@ -86,6 +86,23 @@ message HostToArk {
 
     DatasetPathsRequest dataset_paths = 0x701; // Maps every path an app can read, from the dataset view
 
+    // Health messages occupy the reserved range 0x901-0xA00.
+
+    // At most 1 MiB of initial import bytes, without a label or file name.
+    HealthImportStartRequest health_import_start = 0x901;
+    // At most 1 MiB of subsequent import bytes, without an offset or label.
+    HealthImportChunkRequest health_import_chunk = 0x902;
+    // One upload session to cancel, without import content.
+    HealthImportCancelRequest health_import_cancel = 0x903;
+    // One upload session to finish or poll, without import content.
+    HealthImportProcessRequest health_import_process = 0x904;
+    // Empty request for import headers, without permission to read details.
+    HealthListRequest health_list = 0x905;
+    // One 16-byte import id to delete after a prompt, without resource ids.
+    HealthDeleteRequest health_delete = 0x906;
+    // One protected-category level to approve, without values or selectors.
+    HealthDetailsRequest health_details = 0x907;
+
     // Unreleased messages served by development firmware only, carried opaquely
     // so the public protocol is untouched while they are still under development.
     // Their schema is private and production Arks refuse the envelope.
@@ -170,6 +187,23 @@ message ArkToHost {
     // Dataset messages, reserved range 0x701-0x800
 
     DatasetPathsResponse dataset_paths = 0x701; // Every path an app can read, with its description, format and examples
+
+    // Health messages occupy the reserved range 0x901-0xA00.
+
+    // One approved upload handle, without import content.
+    HealthImportStartResponse health_import_start = 0x901;
+    // Empty acknowledgement, without echoed upload bytes.
+    HealthImportChunkResponse health_import_chunk = 0x902;
+    // Empty acknowledgement, without import content.
+    HealthImportCancelResponse health_import_cancel = 0x903;
+    // One upload outcome and counts, without values or free-text failures.
+    HealthImportProcessResponse health_import_process = 0x904;
+    // Complete header listing within the wire limit, without names or counts.
+    HealthListResponse health_list = 0x905;
+    // Empty acknowledgement, without deleted content.
+    HealthDeleteResponse health_delete = 0x906;
+    // Approved metadata within the wire limit, without values or source names.
+    HealthDetailsResponse health_details = 0x907;
 
     // Unreleased messages emitted by development firmware only, in response to
     // a develop request, carried opaquely so the public protocol is untouched
@@ -840,4 +874,390 @@ message DatasetPath {
   repeated string examples  = 7; // Complete example values, most typical first
   bool            public    = 8; // Whether a grant reads nothing about the owner's DNA, for grantable paths
   string          wording   = 9; // Template wording a grant to the owner, for grantable paths
+}
+
+
+// Request failures carried in ArkToHost.err, never in a successful health body.
+// Error.msg is fixed wording without input excerpts, values, names or resource
+// ids. Prompt declines, expiries and delivery failures use ReservedErrors
+// UNAUTHORIZED, UNCONFIRMED and UNDELIVERED, respectively.
+enum HealthErrors {
+  // Unset code, never sent as a health error.
+  HEALTH_ERRORS_UNSPECIFIED = 0;
+  // Invalid size, chunk or id, without identifying the rejected content.
+  HEALTH_ERRORS_REQUEST_INVALID = 0x901;
+  // Locked owner storage, without revealing any import metadata.
+  HEALTH_ERRORS_STORAGE_LOCKED = 0x902;
+  // Occupied import or prompt capacity, without identifying its holder.
+  HEALTH_ERRORS_BUSY = 0x903;
+  // Absent, expired or foreign upload session, without identifying its holder.
+  HEALTH_ERRORS_SESSION_UNKNOWN = 0x904;
+  // Wrong upload state for this request, without import content.
+  HEALTH_ERRORS_SESSION_STATE = 0x905;
+  // Received bytes below the declared size, without echoed bytes.
+  HEALTH_ERRORS_UPLOAD_INCOMPLETE = 0x906;
+  // Absent committed import, without a resource id or file path.
+  HEALTH_ERRORS_IMPORT_UNKNOWN = 0x907;
+  // Failed storage operation, without paths or internal diagnostics.
+  HEALTH_ERRORS_STORAGE_FAILED = 0x908;
+  // Exceeded size, resource count or response limit, without input excerpts.
+  HEALTH_ERRORS_LIMIT = 0x909;
+}
+
+// Prompt request for one FHIR R4 JSON or NDJSON stream, without a file name.
+// The Ark checks size limits before the 60s phone prompt and writes no upload
+// bytes until approval. A refusal returns only ArkToHost.err, without a session.
+// TODO(fhir-import-2): limits are 256 MiB per import, 64 MiB per resource or
+// NDJSON line and 2 million resources, including packaging and invalid entries.
+// Applications enforce these semantic limits; protobuf decoding does not.
+message HealthImportStartRequest {
+  reserved 1;
+  reserved "label";
+  // Total received size, 1 byte through 256 MiB including chunk, never a label.
+  uint64 size = 2;
+  // First received bytes, 1 byte through 1 MiB and no larger than size.
+  // Raw FHIR content travels only in upload chunks, never in health replies.
+  bytes chunk = 3;
+}
+
+// Approved upload handle with the first chunk accepted, without import content.
+// The upload belongs to the current host wire session and expires after 30s
+// idle or when that wire session ends. Committed imports remain stored.
+message HealthImportStartResponse {
+  // Nonzero upload handle scoped to this host session, never an import id.
+  uint64 session = 1;
+}
+
+// Next upload bytes, at most 1 MiB, without an offset, label or file name.
+// The host waits for each acknowledgement before sending another chunk.
+// An uncertain acknowledgement cannot be retried; a rejected chunk adds nothing.
+// The Ark refuses bytes beyond the size declared in HealthImportStartRequest.
+message HealthImportChunkRequest {
+  // Nonzero handle from HealthImportStartResponse, never a committed import id.
+  uint64 session = 1;
+  // Next received bytes, 1 byte through 1 MiB, never echoed in a response.
+  bytes chunk = 2;
+}
+
+// Empty acknowledgement extending the upload's 30s idle window, without data.
+// Processing reports any later write failure before committing the import.
+message HealthImportChunkResponse {
+}
+
+// Cancellation of one upload or processing session, without deleting an import.
+// The response waits until processing cannot commit. An already committed
+// import requires HealthDeleteRequest. Canceling an absent session succeeds.
+message HealthImportCancelRequest {
+  // Nonzero upload handle in this host session, never a committed import id.
+  uint64 session = 1;
+}
+
+// Empty acknowledgement that temporary upload state is gone, without data.
+message HealthImportCancelResponse {
+}
+
+// One processing state, without phases, resource names or free-text diagnostics.
+enum HealthImportState {
+  // Unset state, never sent in a successful processing response.
+  HEALTH_IMPORT_STATE_UNSPECIFIED = 0;
+  // Parsing, indexing or committing, without identifying the current resource.
+  HEALTH_IMPORT_STATE_PROCESSING = 1;
+  // Committed import with its summary, without exposing resource content.
+  HEALTH_IMPORT_STATE_DONE = 2;
+  // Failed import with no commit, without input excerpts.
+  HEALTH_IMPORT_STATE_FAILED = 3;
+}
+
+// One terminal import failure, without free text, values, source names or ids.
+enum HealthImportFailure {
+  // No failure, required in PROCESSING and DONE and forbidden in FAILED.
+  HEALTH_IMPORT_FAILURE_UNSPECIFIED = 0;
+  // Input is not a supported FHIR R4 JSON or NDJSON stream, without excerpts.
+  HEALTH_IMPORT_FAILURE_NOT_FHIR = 1;
+  // More than one distinct patient, without patient names or identifiers.
+  HEALTH_IMPORT_FAILURE_SEVERAL_PATIENTS = 2;
+  // Identical received bytes are already imported, without identifying them.
+  HEALTH_IMPORT_FAILURE_ALREADY_IMPORTED = 3;
+  // Import, resource or count limit exceeded, without identifying a resource.
+  HEALTH_IMPORT_FAILURE_LIMIT = 4;
+  // Import or index could not be stored, without paths or internal diagnostics.
+  HEALTH_IMPORT_FAILURE_STORAGE_FAILED = 5;
+}
+
+// Completion or poll of one upload session, without import content.
+// The first call starts processing only when received bytes equal declared size.
+// An incomplete upload returns HEALTH_ERRORS_UPLOAD_INCOMPLETE and accepts chunks.
+// Later calls only poll. Terminal results remain available for 60s, unless the
+// upload is canceled or its host wire session ends first.
+message HealthImportProcessRequest {
+  // Nonzero upload handle to finish or poll, never a committed import id.
+  uint64 session = 1;
+}
+
+// One upload's progress and outcome, without values, free text or resource ids.
+// Request failures use ArkToHost.err; processing failures use FAILED and failure.
+// TODO(fhir-import-2): progress is overall, without named phases.
+message HealthImportProcessResponse {
+  // Current state, never UNSPECIFIED or a resource classification.
+  HealthImportState state = 1;
+  // Approximate progress in basis points, 0 through 10000, never a health value.
+  // DONE carries 10000; FAILED keeps the last estimate.
+  uint64 progress = 2;
+  // Nonzero failure code exactly in FAILED, never free-text diagnostics.
+  HealthImportFailure failure = 3;
+  // One committed import's counts, present exactly in DONE, never stored values.
+  HealthImportSummary summary = 4;
+}
+
+// Detected file shape, without a Bundle subtype, file name or source identity.
+enum HealthFileKind {
+  // Unset kind, never sent for a committed import.
+  HEALTH_FILE_KIND_UNSPECIFIED = 0;
+  // One Bundle of any type, without its title or source.
+  HEALTH_FILE_KIND_BUNDLE = 1;
+  // Newline-delimited resources, without original file names.
+  HEALTH_FILE_KIND_NDJSON = 2;
+  // One resource outside a Bundle, without its resource type or id.
+  HEALTH_FILE_KIND_SINGLE_RESOURCE = 3;
+}
+
+// Resource counts by class, without per-resource values, names or identifiers.
+// Each resource counts once in exactly one class, including invalid entries.
+// Each count and their sum are at most 2 million; codings do not add resources.
+message HealthClassCounts {
+  // Clinical resources, 0 through 2 million, never their diagnoses or values.
+  uint64 clinical = 1;
+  // Measurement resources, 0 through 2 million, never readings or sample counts.
+  uint64 measurement = 2;
+  // Signal resources, 0 through 2 million, never waveform samples.
+  uint64 signal = 3;
+  // Attachment resources, 0 through 2 million, never file names or content.
+  uint64 attachment = 4;
+  // Other resources including unplaced entries, 0 through 2 million, no names.
+  uint64 other = 5;
+  // Packaging resources including OperationOutcome, 0 through 2 million, no text.
+  uint64 packaging = 6;
+  // Invalid entries, 0 through 2 million, never their rejected content.
+  uint64 invalid = 7;
+}
+
+// Bounds of known clinical times in Unix milliseconds, without event content.
+// Absent as a whole when no time is known. Partial dates contribute their start
+// in UTC; times without an offset use UTC. A single time fills both fields.
+// TODO(fhir-import-2): these conventions do not retain input date precision.
+message HealthTimeSpan {
+  // Earliest time as signed Unix milliseconds, at most last, never a text date.
+  int64 first = 1;
+  // Latest time as signed Unix milliseconds, at least first, never a text date.
+  int64 last = 2;
+}
+
+// Summary of the uploaded bytes, without values, free text, names or resource ids.
+// Full counts include protected entries because this host supplied the input.
+// Counts describe this import, without deduplication against other imports.
+message HealthImportSummary {
+  // Exactly 16 random bytes assigned by the Ark, never a FHIR resource id.
+  bytes import_id = 1;
+  // Upload's received time in Unix milliseconds, never an input date or label.
+  int64 received = 2;
+  // Detected file shape, never UNSPECIFIED or a file name.
+  HealthFileKind file_kind = 3;
+  // All resources by class, always present, never per-resource content.
+  HealthClassCounts counts = 4;
+  // Protected resources counted once, 0 through 2 million, no category names.
+  uint64 protected_entries = 5;
+  // Unplaced resources also counted in counts.other, 0 through counts.other.
+  // Never includes their codes or names.
+  uint64 unplaced = 6;
+  // OperationOutcome resources, 0 through counts.packaging, without issue text.
+  uint64 export_errors = 7;
+  // Full import's known clinical times, absent if unknown, without event names.
+  HealthTimeSpan time_span = 8;
+}
+
+// Empty request for committed import headers, without permission to read details.
+// Requires unlocked storage but no prompt. Pending and failed imports are absent.
+// TODO(fhir-import-2): lists have no pagination. A complete reply that exceeds
+// the wire message limit returns HEALTH_ERRORS_LIMIT without partial content.
+message HealthListRequest {
+}
+
+// Complete import header listing within the wire limit, without names or counts.
+message HealthListResponse {
+  // Headers sorted by received time, then raw id bytes, with no details fields.
+  // Empty when no imports exist; hosts number this list starting at 1.
+  repeated HealthImportInfo imports = 1;
+}
+
+// One committed import header, without sizes, names, counts or clinical times.
+// Reading it requires neither an index nor permission to read details.
+message HealthImportInfo {
+  // Exactly 16 random bytes assigned by the Ark, never a resource or upload id.
+  bytes import_id = 1;
+  // Upload's received time in Unix milliseconds, never an input date or label.
+  int64 received = 2;
+  // Detected shape, never UNSPECIFIED, a file name or a resource type.
+  HealthFileKind file_kind = 3;
+}
+
+// Prompt request for bounded metadata, without values or per-import selectors.
+// Approval opens a window for this host wire session and this exact level.
+// Calls at that level reuse the unexpired window without a prompt or extension.
+// A different level requires its own decision and replaces the active window
+// only on approval. Disconnect, lock or expiry closes access. The phone prompt
+// allows 120s for a decision; the access window starts after approval.
+// TODO(fhir-import-2): the host selects the level and the phone confirms it.
+message HealthDetailsRequest {
+  // Whether protected kinds may appear, never permission to read their values.
+  bool include_protected = 1;
+}
+
+// Complete approved metadata within the wire limit, without resource content.
+// Every string is a code or a kind name, never a value, narrative, source name
+// or resource id. No JSON, FHIR resource, generic map or opaque data is carried.
+// An oversized complete reply returns HEALTH_ERRORS_LIMIT, never partial data.
+// Applications enforce these content rules; generated codecs do not validate
+// string meanings, id lengths, enum membership or cross-field constraints.
+message HealthDetailsResponse {
+  // Remaining access time in seconds, rounded down, never a prompt countdown.
+  // Zero means the host must hide details; calls never extend the window.
+  uint32 remaining_seconds = 1;
+  // Approved level matching the request, never inferred from the returned kinds.
+  bool include_protected = 2;
+  // All imports sorted as HealthListResponse, within the wire message limit.
+  // Empty if none exist; never includes raw FHIR, values or source identities.
+  repeated HealthImportDetails imports = 3;
+}
+
+// Content-derived import name from a fixed vocabulary, never an input string.
+// The Ark chooses using only unprotected entries, independent of details level.
+enum HealthImportName {
+  // Unset name, never sent in approved details.
+  HEALTH_IMPORT_NAME_UNSPECIFIED = 0;
+  // Generic health records, including an import with no unprotected kinds.
+  HEALTH_IMPORT_NAME_HEALTH_RECORDS = 1;
+  // Lab results, without naming the lab, tests or their values.
+  HEALTH_IMPORT_NAME_LAB_RESULTS = 2;
+  // Hospital stay, without naming the hospital, people or diagnoses.
+  HEALTH_IMPORT_NAME_HOSPITAL_STAY = 3;
+  // Clinical records, without names of people, sources or protected categories.
+  HEALTH_IMPORT_NAME_CLINICAL_RECORDS = 4;
+  // Measurements, without names of devices or any measured values.
+  HEALTH_IMPORT_NAME_MEASUREMENTS = 5;
+  // Signals, without a source name or any waveform samples.
+  HEALTH_IMPORT_NAME_SIGNALS = 6;
+}
+
+// Approved metadata for one import, without values, free text or resource ids.
+// Kinds omit protected entries unless include_protected was approved. At the
+// lower level only protected_entries counts them; their times and unsupported
+// classes are excluded. Received time and both sizes describe the whole import.
+message HealthImportDetails {
+  // Exactly 16 random import id bytes, never a FHIR resource or upload id.
+  bytes import_id = 1;
+  // Fixed content-derived name, never UNSPECIFIED or a source-supplied string.
+  HealthImportName name = 2;
+  // Upload's received time in Unix milliseconds, never a source name or date.
+  int64 received = 3;
+  // Received stream size, 1 byte through 256 MiB, never decoded attachment sizes.
+  uint64 received_size = 4;
+  // Total bytes in the import and index files, excluding cached views.
+  // Nonzero for a committed import; never individual resource sizes or paths.
+  uint64 stored_size = 5;
+  // Known times of entries visible at this level, absent when none are known.
+  // Hidden protected times never contribute at the lower level.
+  HealthTimeSpan time_span = 6;
+  // Kinds grouped by category, system, code and protected-category set.
+  // Sorted in that order within the wire limit; never values or source names.
+  repeated HealthKind kinds = 7;
+  // Protected resources counted once, 0 through 2 million, at either level.
+  // A resource in several protected categories counts once, without names.
+  uint64 protected_entries = 8;
+  // Unsupported counts visible at this level, always present, without names.
+  HealthUnsupportedCounts unsupported = 9;
+}
+
+// One visible data category, without a resource type, source name or value.
+enum HealthCategory {
+  // Unset category, never sent for a kind.
+  HEALTH_CATEGORY_UNSPECIFIED = 0;
+  // Clinical records, without attachment, packaging or invalid entries.
+  HEALTH_CATEGORY_CLINICAL = 1;
+  // Measurements, without individual readings.
+  HEALTH_CATEGORY_MEASUREMENT = 2;
+  // Signal recordings, without waveform samples.
+  HEALTH_CATEGORY_SIGNAL = 3;
+}
+
+// One protected category, never a diagnosis, test result or free-text label.
+enum HealthProtectedCategory {
+  // Unset category, never an element of a kind's protected categories.
+  HEALTH_PROTECTED_CATEGORY_UNSPECIFIED = 0;
+  // HIV-related entries, without results or values.
+  HEALTH_PROTECTED_CATEGORY_HIV = 1;
+  // Sexual and reproductive health, without results or values.
+  HEALTH_PROTECTED_CATEGORY_SEXUAL_REPRODUCTIVE = 2;
+  // Mental health, without results or values.
+  HEALTH_PROTECTED_CATEGORY_MENTAL_HEALTH = 3;
+  // Substance use, without results or values.
+  HEALTH_PROTECTED_CATEGORY_SUBSTANCE_USE = 4;
+  // Genetic tests, without variants, results or values.
+  HEALTH_PROTECTED_CATEGORY_GENETIC_TESTS = 5;
+}
+
+// One code's resource counts, without values, free text, source names or ids.
+// A resource with several codings can count under several kinds. Counts within
+// a kind count resources once, never index rows or waveform samples.
+message HealthKind {
+  // Clinical, measurement or signal, never UNSPECIFIED or a source category.
+  HealthCategory category = 1;
+  // Code-system identifier, at most 256 UTF-8 bytes, without controls.
+  // Empty only with an empty code; never a source URL, name or resource id.
+  string system = 2;
+  // Kind's code, at most 128 UTF-8 bytes, without controls or surrounding space.
+  // Empty with system for uncoded kinds; never a result code or resource id.
+  string code = 3;
+  // Kind name, 1 through 80 characters on one line, without values or names
+  // of sources or people. Only Ark terminology or a code-based fallback is
+  // allowed; input narrative, text and display strings never appear here.
+  // TODO(fhir-import-2): wire names use the Ark's small terminology table.
+  string name = 4;
+  // Resource count in this import, 1 through 2 million, never measured values.
+  uint64 count = 5;
+  // Known times of these resources, absent if unknown, never input date text.
+  HealthTimeSpan time_span = 6;
+  // Distinct resource identities absent from every other import, 0 through
+  // count. These entries disappear on deletion; their identifiers stay hidden.
+  uint64 unique_entries = 7;
+  // Sorted distinct protected categories, at most five, without result values.
+  // Empty for unprotected entries. Nonempty only at the approved higher level.
+  repeated HealthProtectedCategory protected_categories = 8;
+}
+
+// Unsupported resource counts at the approved level, without codes or names.
+// Each count is at most 2 million. Unplaced is a subset of other, so hosts
+// must not add it again when displaying the unsupported total.
+message HealthUnsupportedCounts {
+  // Attachment resources, 0 through 2 million, without file names or content.
+  uint64 attachment = 1;
+  // Other resources including unplaced entries, 0 through 2 million, no names.
+  uint64 other = 2;
+  // Invalid entries, 0 through 2 million, without rejected input excerpts.
+  uint64 invalid = 3;
+  // Unplaced entries also included in other, 0 through other, without codes.
+  uint64 unplaced = 4;
+}
+
+// Prompt request to delete one committed import, without resource selectors.
+// Requires unlocked storage. The 120s prompt names the import, its received
+// date and how many kinds it touches. The response waits for approved deletion
+// of the import, index and dependent cached views. Other imports remain intact.
+// An absent import returns HEALTH_ERRORS_IMPORT_UNKNOWN without a prompt.
+message HealthDeleteRequest {
+  // Exactly 16 random bytes from an import response, never a resource id.
+  bytes import_id = 1;
+}
+
+// Empty acknowledgement of approved deletion, without deleted content or ids.
+message HealthDeleteResponse {
 }

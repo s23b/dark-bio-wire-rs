@@ -57,6 +57,20 @@ The application must keep receiving and answering the peer's requests while its 
 
 A host runs an app through `exec_create`, `exec_load` and `exec_start`. Creation names the main module by its SHA-256 digest and returns a task id. While loading waits, the host answers the Ark's `exec_module_size` and `exec_module_read` requests for the main module and its dependencies. Loading has no overall deadline; each module request gets 30s. Starting opens the approval on the owner's phone in Ark Companion, and the task's apps run once the owner approves.
 
+## Health imports
+
+A host imports FHIR R4 through `health_import_start`, `health_import_chunk` and `health_import_process`. Starting sends the size and first chunk and waits for the owner's approval in Ark Companion. No label or file name is sent. The response returns an upload handle scoped to the host session. Chunks follow in order. Processing returns a state, progress and either the committed import's summary or a failure enum. `health_import_cancel` discards temporary upload state.
+
+`health_list` needs no prompt and returns only each import's 16-byte random id, received time and file kind. Hosts number imports by received time, breaking ties by id. File kinds distinguish Bundles of any type, NDJSON and single resources.
+
+`health_details` requests a window at one `include_protected` level. The phone confirms that level. Calls from the same host session at that level reuse the window without extending it. The response reports its remaining seconds, independently of the phone's decision timeout. Hosts hide details when that time reaches zero. A different level requires another decision; disconnecting or locking closes access.
+
+Details contain import names from a fixed enum, received and stored sizes, time spans, and kinds with codes, names, resource counts and deletion counts. Kind names use Ark terminology or a code-based fallback, never FHIR text or display strings. Protected kinds appear only at the approved higher level; otherwise each import exposes one protected count. Hidden protected entries contribute neither kind metadata, clinical times nor unsupported class counts. The import name always ignores protected entries. Attachment, other, invalid and unplaced counts describe unsupported entries; unplaced is already included in other.
+
+The process summary describes what the host uploaded, so its counts and time span include protected entries. Neither summaries nor details contain values, narrative, source names or resource ids. `health_delete` waits for phone approval to delete one import. Approval declines, expiries and delivery failures use the reserved envelope errors; other request failures use `HealthErrors`.
+
+The health range is `0x901-0xA00`. [The schema](proto/wire.proto) defines field limits, count semantics and session lifetimes. Applications enforce semantic constraints; generated protobuf codecs only enforce wire encoding. The proof of concept uses overall processing progress, a small terminology table and complete lists without pagination. A reply exceeding the wire limit fails instead of returning a partial list.
+
 ## Timeouts and clocks
 
 A handshake has 5 s to complete, and each outgoing frame 5 s to be written. `Stream::set_write_timeout` changes the frame budget. Reads in an established session have no timeout. They wait until data arrives or the stream shuts down.
@@ -66,6 +80,10 @@ The crate reads all time from the stream's clock, the one its reader and writer 
 ## Test vectors
 
 The `vectors` directory holds golden transcripts for validating third-party clients. Each JSON file holds one client scenario, such as stale data before a handshake, an oversized frame or a timeout. It records the server's keys, the client's calls with their results, and every byte read and written. A client under test replays the reads and must produce the recorded writes. Encrypted frames differ between runs, so the replay opens them with the server's keys and compares their contents. There are no server vectors, since the Ark, genuine or emulated, is the only server.
+
+`vectors/health.json` contains invented plaintext protobuf envelopes for every health request and response, processing failures, protected details and request errors. Each case records its direction, hexadecimal bytes and expected wire acceptance. These fixtures pin tags, enum values, id bytes and optional-message presence. Application validation is separate from wire acceptance. The same cases seed the envelope fuzzer.
+
+`make generate`, `make vectors` and `make fuzz-seeds` regenerate the bindings, vectors and seeds. Set `CARGO_NET_OFFLINE=true` to use cached dependencies. When nextest is unavailable, `TEST_RUNNER='cargo test --locked --offline'` selects Cargo's runner for vectors and seeds. CI checks that regeneration leaves the tracked artifacts unchanged.
 
 ## Stability
 

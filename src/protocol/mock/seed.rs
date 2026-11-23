@@ -10,8 +10,8 @@
 //! inputs are already wire bytes prefixed by a direction byte. The shared writer
 //! saves them under `WIRE_SEEDS/<target>`. Action inputs come from
 //! `session/fuzz_tests.rs` and `connection/fuzz_tests.rs`, envelope inputs from
-//! `envelope/tests.rs` and `session/tests.rs`. `make fuzz-seeds` regenerates
-//! them alongside the transport seeds.
+//! `envelope/tests.rs`, `session/tests.rs` and `message/health.rs`.
+//! `make fuzz-seeds` regenerates them alongside the transport seeds.
 
 use super::{connection, session};
 use crate::transport::mock::seed::{Seed, Seedable};

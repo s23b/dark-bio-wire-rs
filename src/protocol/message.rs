@@ -105,6 +105,11 @@ macro_rules! contents {
 
 include!("generated/message.rs");
 
+/// Golden health envelopes shared with client implementations and the fuzzer.
+#[cfg(test)]
+#[cfg_attr(coverage_nightly, coverage(off))]
+mod health;
+
 /// Checks variant-safe conversion between message bodies and concrete payloads.
 #[cfg(test)]
 #[cfg_attr(coverage_nightly, coverage(off))]
