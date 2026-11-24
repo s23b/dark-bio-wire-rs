@@ -1150,190 +1150,192 @@ pub struct DatasetPath {
     #[prost(string, tag = "9")]
     pub wording: ::prost::alloc::string::String,
 }
-/// Prompt request for one FHIR R4 JSON or NDJSON stream, without a file name.
+/// Prompt request for one FHIR R4 JSON or NDJSON stream.
 /// The Ark checks size limits before the 60s phone prompt and writes no upload
-/// bytes until approval. A refusal returns only ArkToHost.err, without a session.
+/// bytes until approval. A refusal returns ArkToHost.err.
 /// TODO(fhir-import-2): limits are 256 MiB per import, 64 MiB per resource or
 /// NDJSON line and 2 million resources, including packaging and invalid entries.
 /// Applications enforce these semantic limits; protobuf decoding does not.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct HealthImportStartRequest {
-    /// Total received size, 1 byte through 256 MiB including chunk, never a label.
+    /// Total received size, 1 byte through 256 MiB including chunk.
     #[prost(uint64, tag = "2")]
     pub size: u64,
     /// First received bytes, 1 byte through 1 MiB and no larger than size.
-    /// Raw FHIR content travels only in upload chunks, never in health replies.
     #[prost(bytes = "vec", tag = "3")]
     pub chunk: ::prost::alloc::vec::Vec<u8>,
 }
-/// Approved upload handle with the first chunk accepted, without import content.
+/// Approved upload handle with the first chunk accepted.
 /// The upload belongs to the current host wire session and expires after 30s
 /// idle or when that wire session ends. Committed imports remain stored.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct HealthImportStartResponse {
-    /// Nonzero upload handle scoped to this host session, never an import id.
+    /// Nonzero upload handle scoped to this host session.
     #[prost(uint64, tag = "1")]
     pub session: u64,
 }
-/// Next upload bytes, at most 1 MiB, without an offset, label or file name.
+/// Next upload bytes, at most 1 MiB.
 /// The host waits for each acknowledgement before sending another chunk.
 /// An uncertain acknowledgement cannot be retried; a rejected chunk adds nothing.
 /// The Ark refuses bytes beyond the size declared in HealthImportStartRequest.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct HealthImportChunkRequest {
-    /// Nonzero handle from HealthImportStartResponse, never a committed import id.
+    /// Nonzero handle from HealthImportStartResponse.
     #[prost(uint64, tag = "1")]
     pub session: u64,
-    /// Next received bytes, 1 byte through 1 MiB, never echoed in a response.
+    /// Next received bytes, 1 byte through 1 MiB.
     #[prost(bytes = "vec", tag = "2")]
     pub chunk: ::prost::alloc::vec::Vec<u8>,
 }
-/// Empty acknowledgement extending the upload's 30s idle window, without data.
+/// Empty acknowledgement extending the upload's 30s idle window.
 /// Processing reports any later write failure before committing the import.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct HealthImportChunkResponse {}
-/// Cancellation of one upload or processing session, without deleting an import.
+/// Cancellation of one upload or processing session.
 /// The response waits until processing cannot commit. An already committed
 /// import requires HealthDeleteRequest. Canceling an absent session succeeds.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct HealthImportCancelRequest {
-    /// Nonzero upload handle in this host session, never a committed import id.
+    /// Nonzero upload handle in this host session.
     #[prost(uint64, tag = "1")]
     pub session: u64,
 }
-/// Empty acknowledgement that temporary upload state is gone, without data.
+/// Empty acknowledgement that temporary upload state is gone.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct HealthImportCancelResponse {}
-/// Completion or poll of one upload session, without import content.
+/// Completion or poll of one upload session.
 /// The first call starts processing only when received bytes equal declared size.
 /// An incomplete upload returns HEALTH_ERRORS_UPLOAD_INCOMPLETE and accepts chunks.
 /// Later calls only poll. Terminal results remain available for 60s, unless the
 /// upload is canceled or its host wire session ends first.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct HealthImportProcessRequest {
-    /// Nonzero upload handle to finish or poll, never a committed import id.
+    /// Nonzero upload handle to finish or poll.
     #[prost(uint64, tag = "1")]
     pub session: u64,
 }
-/// One upload's progress and outcome, without values, free text or resource ids.
+/// One upload's progress and outcome.
 /// Request failures use ArkToHost.err; processing failures use FAILED and failure.
-/// TODO(fhir-import-2): progress is overall, without named phases.
+/// TODO(fhir-import-2): progress is an overall estimate across both phases.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct HealthImportProcessResponse {
-    /// Current state, never UNSPECIFIED or a resource classification.
+    /// Current state, required to be set.
     #[prost(enumeration = "HealthImportState", tag = "1")]
     pub state: i32,
-    /// Approximate progress in basis points, 0 through 10000, never a health value.
+    /// STORING or INDEXING in PROCESSING; UNSPECIFIED in DONE and FAILED.
+    #[prost(enumeration = "HealthImportPhase", tag = "2")]
+    pub phase: i32,
+    /// Approximate overall progress in basis points, 0 through 10000.
     /// DONE carries 10000; FAILED keeps the last estimate.
-    #[prost(uint64, tag = "2")]
+    #[prost(uint64, tag = "3")]
     pub progress: u64,
-    /// Nonzero failure code exactly in FAILED, never free-text diagnostics.
-    #[prost(enumeration = "HealthImportFailure", tag = "3")]
+    /// Nonzero failure code exactly in FAILED.
+    #[prost(enumeration = "HealthImportFailure", tag = "4")]
     pub failure: i32,
-    /// One committed import's counts, present exactly in DONE, never stored values.
-    #[prost(message, optional, tag = "4")]
+    /// One committed import's counts, present exactly in DONE.
+    #[prost(message, optional, tag = "5")]
     pub summary: ::core::option::Option<HealthImportSummary>,
 }
-/// Resource counts by class, without per-resource values, names or identifiers.
+/// Resource counts by class.
 /// Each resource counts once in exactly one class, including invalid entries.
 /// Each count and their sum are at most 2 million; codings do not add resources.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct HealthClassCounts {
-    /// Clinical resources, 0 through 2 million, never their diagnoses or values.
+    /// Clinical resources, 0 through 2 million.
     #[prost(uint64, tag = "1")]
     pub clinical: u64,
-    /// Measurement resources, 0 through 2 million, never readings or sample counts.
+    /// Measurement resources, 0 through 2 million.
     #[prost(uint64, tag = "2")]
     pub measurement: u64,
-    /// Signal resources, 0 through 2 million, never waveform samples.
+    /// Signal resources, 0 through 2 million.
     #[prost(uint64, tag = "3")]
     pub signal: u64,
-    /// Attachment resources, 0 through 2 million, never file names or content.
+    /// Attachment resources, 0 through 2 million.
     #[prost(uint64, tag = "4")]
     pub attachment: u64,
-    /// Other resources including unplaced entries, 0 through 2 million, no names.
+    /// Other resources including unplaced entries, 0 through 2 million.
     #[prost(uint64, tag = "5")]
     pub other: u64,
-    /// Packaging resources including OperationOutcome, 0 through 2 million, no text.
+    /// Packaging resources including OperationOutcome, 0 through 2 million.
     #[prost(uint64, tag = "6")]
     pub packaging: u64,
-    /// Invalid entries, 0 through 2 million, never their rejected content.
+    /// Invalid entries, 0 through 2 million.
     #[prost(uint64, tag = "7")]
     pub invalid: u64,
 }
-/// Bounds of known clinical times in Unix milliseconds, without event content.
+/// Bounds of known clinical times in Unix milliseconds.
 /// Absent as a whole when no time is known. Partial dates contribute their start
 /// in UTC; times without an offset use UTC. A single time fills both fields.
 /// TODO(fhir-import-2): these conventions do not retain input date precision.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct HealthTimeSpan {
-    /// Earliest time as signed Unix milliseconds, at most last, never a text date.
+    /// Earliest time as signed Unix milliseconds, at most last.
     #[prost(int64, tag = "1")]
     pub first: i64,
-    /// Latest time as signed Unix milliseconds, at least first, never a text date.
+    /// Latest time as signed Unix milliseconds, at least first.
     #[prost(int64, tag = "2")]
     pub last: i64,
 }
-/// Summary of the uploaded bytes, without values, free text, names or resource ids.
+/// Summary of the uploaded bytes.
 /// Full counts include protected entries because this host supplied the input.
 /// Counts describe this import, without deduplication against other imports.
+/// Values, free text, names and resource ids are excluded.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct HealthImportSummary {
-    /// Exactly 16 random bytes assigned by the Ark, never a FHIR resource id.
+    /// Exactly 16 random bytes assigned by the Ark to the import.
     #[prost(bytes = "vec", tag = "1")]
     pub import_id: ::prost::alloc::vec::Vec<u8>,
-    /// Upload's received time in Unix milliseconds, never an input date or label.
+    /// Upload's received time in Unix milliseconds.
     #[prost(int64, tag = "2")]
     pub received: i64,
-    /// Detected file shape, never UNSPECIFIED or a file name.
+    /// Detected file shape, required to be set.
     #[prost(enumeration = "HealthFileKind", tag = "3")]
     pub file_kind: i32,
-    /// All resources by class, always present, never per-resource content.
+    /// All resources by class, always present.
     #[prost(message, optional, tag = "4")]
     pub counts: ::core::option::Option<HealthClassCounts>,
-    /// Protected resources counted once, 0 through 2 million, no category names.
+    /// Protected resources counted once, 0 through 2 million.
     #[prost(uint64, tag = "5")]
     pub protected_entries: u64,
     /// Unplaced resources also counted in counts.other, 0 through counts.other.
-    /// Never includes their codes or names.
     #[prost(uint64, tag = "6")]
     pub unplaced: u64,
-    /// OperationOutcome resources, 0 through counts.packaging, without issue text.
+    /// OperationOutcome resources, 0 through counts.packaging.
     #[prost(uint64, tag = "7")]
     pub export_errors: u64,
-    /// Full import's known clinical times, absent if unknown, without event names.
+    /// Full import's known clinical times, absent if unknown.
     #[prost(message, optional, tag = "8")]
     pub time_span: ::core::option::Option<HealthTimeSpan>,
 }
-/// Empty request for committed import headers, without permission to read details.
+/// Empty request for committed import headers.
 /// Requires unlocked storage but no prompt. Pending and failed imports are absent.
 /// TODO(fhir-import-2): lists have no pagination. A complete reply that exceeds
 /// the wire message limit returns HEALTH_ERRORS_LIMIT without partial content.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct HealthListRequest {}
-/// Complete import header listing within the wire limit, without names or counts.
+/// Complete import header listing within the wire limit.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct HealthListResponse {
-    /// Headers sorted by received time, then raw id bytes, with no details fields.
+    /// Headers sorted by received time, then raw id bytes.
     /// Empty when no imports exist; hosts number this list starting at 1.
     #[prost(message, repeated, tag = "1")]
     pub imports: ::prost::alloc::vec::Vec<HealthImportInfo>,
 }
-/// One committed import header, without sizes, names, counts or clinical times.
+/// One committed import's id, received time and detected file shape.
 /// Reading it requires neither an index nor permission to read details.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct HealthImportInfo {
-    /// Exactly 16 random bytes assigned by the Ark, never a resource or upload id.
+    /// Exactly 16 random bytes assigned by the Ark to the import.
     #[prost(bytes = "vec", tag = "1")]
     pub import_id: ::prost::alloc::vec::Vec<u8>,
-    /// Upload's received time in Unix milliseconds, never an input date or label.
+    /// Upload's received time in Unix milliseconds.
     #[prost(int64, tag = "2")]
     pub received: i64,
-    /// Detected shape, never UNSPECIFIED, a file name or a resource type.
+    /// Detected shape, required to be set.
     #[prost(enumeration = "HealthFileKind", tag = "3")]
     pub file_kind: i32,
 }
-/// Prompt request for bounded metadata, without values or per-import selectors.
+/// Prompt request for metadata about all imports.
 /// Approval opens a window for this host wire session and this exact level.
 /// Calls at that level reuse the unexpired window without a prompt or extension.
 /// A different level requires its own decision and replaces the active window
@@ -1342,135 +1344,173 @@ pub struct HealthImportInfo {
 /// TODO(fhir-import-2): the host selects the level and the phone confirms it.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct HealthDetailsRequest {
-    /// Whether protected kinds may appear, never permission to read their values.
+    /// Whether protected kinds may appear in the approved details.
     #[prost(bool, tag = "1")]
     pub include_protected: bool,
 }
-/// Complete approved metadata within the wire limit, without resource content.
-/// Every string is a code or a kind name, never a value, narrative, source name
-/// or resource id. No JSON, FHIR resource, generic map or opaque data is carried.
-/// An oversized complete reply returns HEALTH_ERRORS_LIMIT, never partial data.
+/// Complete approved metadata for each import and the kinds across all imports.
+/// An oversized complete reply returns HEALTH_ERRORS_LIMIT.
 /// Applications enforce these content rules; generated codecs do not validate
 /// string meanings, id lengths, enum membership or cross-field constraints.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct HealthDetailsResponse {
-    /// Remaining access time in seconds, rounded down, never a prompt countdown.
-    /// Zero means the host must hide details; calls never extend the window.
+    /// Remaining access time in seconds, rounded down, independent of prompt time.
+    /// Zero means the host must hide details; calls leave the deadline unchanged.
     #[prost(uint32, tag = "1")]
     pub remaining_seconds: u32,
-    /// Approved level matching the request, never inferred from the returned kinds.
+    /// Approved level matching the request.
     #[prost(bool, tag = "2")]
     pub include_protected: bool,
     /// All imports sorted as HealthListResponse, within the wire message limit.
-    /// Empty if none exist; never includes raw FHIR, values or source identities.
+    /// Empty if none exist.
     #[prost(message, repeated, tag = "3")]
     pub imports: ::prost::alloc::vec::Vec<HealthImportDetails>,
+    /// Kinds visible at this level across all imports, sorted by category, system,
+    /// code and protected-category set, as each import's kinds are.
+    #[prost(message, repeated, tag = "4")]
+    pub kinds: ::prost::alloc::vec::Vec<HealthKindOverview>,
 }
-/// Approved metadata for one import, without values, free text or resource ids.
+/// Approved metadata for one import.
 /// Kinds omit protected entries unless include_protected was approved. At the
 /// lower level only protected_entries counts them; their times and unsupported
 /// classes are excluded. Received time and both sizes describe the whole import.
+/// Values, free text, source names and resource ids are excluded.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct HealthImportDetails {
-    /// Exactly 16 random import id bytes, never a FHIR resource or upload id.
+    /// Exactly 16 random bytes assigned by the Ark to the import.
     #[prost(bytes = "vec", tag = "1")]
     pub import_id: ::prost::alloc::vec::Vec<u8>,
-    /// Fixed content-derived name, never UNSPECIFIED or a source-supplied string.
+    /// Content-derived name, required to be set.
     #[prost(enumeration = "HealthImportName", tag = "2")]
     pub name: i32,
-    /// Upload's received time in Unix milliseconds, never a source name or date.
+    /// Upload's received time in Unix milliseconds.
     #[prost(int64, tag = "3")]
     pub received: i64,
-    /// Received stream size, 1 byte through 256 MiB, never decoded attachment sizes.
+    /// Received stream size, 1 byte through 256 MiB.
     #[prost(uint64, tag = "4")]
     pub received_size: u64,
     /// Total bytes in the import and index files, excluding cached views.
-    /// Nonzero for a committed import; never individual resource sizes or paths.
+    /// Nonzero for a committed import.
     #[prost(uint64, tag = "5")]
     pub stored_size: u64,
     /// Known times of entries visible at this level, absent when none are known.
-    /// Hidden protected times never contribute at the lower level.
     #[prost(message, optional, tag = "6")]
     pub time_span: ::core::option::Option<HealthTimeSpan>,
     /// Kinds grouped by category, system, code and protected-category set.
-    /// Sorted in that order within the wire limit; never values or source names.
+    /// Sorted in that order within the wire limit.
     #[prost(message, repeated, tag = "7")]
     pub kinds: ::prost::alloc::vec::Vec<HealthKind>,
     /// Protected resources counted once, 0 through 2 million, at either level.
-    /// A resource in several protected categories counts once, without names.
+    /// A resource in several protected categories counts once.
     #[prost(uint64, tag = "8")]
     pub protected_entries: u64,
-    /// Unsupported counts visible at this level, always present, without names.
+    /// Unsupported counts visible at this level, always present.
     #[prost(message, optional, tag = "9")]
     pub unsupported: ::core::option::Option<HealthUnsupportedCounts>,
 }
-/// One code's resource counts, without values, free text, source names or ids.
+/// One kind's resource counts within an import.
 /// A resource with several codings can count under several kinds. Counts within
-/// a kind count resources once, never index rows or waveform samples.
+/// a kind count distinct resource identities. The key is category, system, code
+/// and the protected-category set, shared with HealthKindOverview.
+/// Values, free text, source names and resource ids are excluded. Kind names use
+/// Ark terminology or a code-based fallback; input text and display are excluded.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct HealthKind {
-    /// Clinical, measurement or signal, never UNSPECIFIED or a source category.
+    /// Clinical, measurement or signal, required to be set.
     #[prost(enumeration = "HealthCategory", tag = "1")]
     pub category: i32,
-    /// Code-system identifier, at most 256 UTF-8 bytes, without controls.
-    /// Empty only with an empty code; never a source URL, name or resource id.
-    #[prost(string, tag = "2")]
-    pub system: ::prost::alloc::string::String,
-    /// Kind's code, at most 128 UTF-8 bytes, without controls or surrounding space.
-    /// Empty with system for uncoded kinds; never a result code or resource id.
+    /// Part of the record, set for clinical kinds; UNSPECIFIED for other categories.
+    #[prost(enumeration = "HealthArea", tag = "2")]
+    pub area: i32,
+    /// Code-system identifier, at most 256 UTF-8 bytes, with controls excluded.
+    /// Empty only with an empty code.
     #[prost(string, tag = "3")]
-    pub code: ::prost::alloc::string::String,
-    /// Kind name, 1 through 80 characters on one line, without values or names
-    /// of sources or people. Only Ark terminology or a code-based fallback is
-    /// allowed; input narrative, text and display strings never appear here.
-    /// TODO(fhir-import-2): wire names use the Ark's small terminology table.
+    pub system: ::prost::alloc::string::String,
+    /// Kind's code, at most 128 UTF-8 bytes, with controls and outer space excluded.
+    /// Empty with system for uncoded kinds.
     #[prost(string, tag = "4")]
+    pub code: ::prost::alloc::string::String,
+    /// Kind name, 1 through 80 characters on one line.
+    /// TODO(fhir-import-2): wire names use the Ark's small terminology table.
+    #[prost(string, tag = "5")]
     pub name: ::prost::alloc::string::String,
-    /// Resource count in this import, 1 through 2 million, never measured values.
-    #[prost(uint64, tag = "5")]
+    /// Distinct resource count in this import, 1 through 2 million.
+    #[prost(uint64, tag = "6")]
     pub count: u64,
-    /// Known times of these resources, absent if unknown, never input date text.
-    #[prost(message, optional, tag = "6")]
+    /// Known times of these resources, absent if unknown.
+    #[prost(message, optional, tag = "7")]
     pub time_span: ::core::option::Option<HealthTimeSpan>,
-    /// Distinct resource identities absent from every other import, 0 through
-    /// count. These entries disappear on deletion; their identifiers stay hidden.
-    #[prost(uint64, tag = "7")]
-    pub unique_entries: u64,
-    /// Sorted distinct protected categories, at most five, without result values.
+    /// Sorted distinct protected categories, at most five.
     /// Empty for unprotected entries. Nonempty only at the approved higher level.
     #[prost(enumeration = "HealthProtectedCategory", repeated, tag = "8")]
     pub protected_categories: ::prost::alloc::vec::Vec<i32>,
+    /// Distinct resource identities absent from every other import, 0 through
+    /// count. These entries disappear on deletion.
+    #[prost(uint64, tag = "9")]
+    pub unique_entries: u64,
 }
-/// Unsupported resource counts at the approved level, without codes or names.
+/// One visible kind across all imports, joined to HealthKind by category,
+/// system, code and protected-category set. The key, area and name follow
+/// HealthKind's content rules and limits. Protected kinds appear only when
+/// include_protected is approved. Each resource identity counts once per kind
+/// across all imports; adding per-import counts would count shared entries again.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct HealthKindOverview {
+    /// Clinical, measurement or signal, required to be set.
+    #[prost(enumeration = "HealthCategory", tag = "1")]
+    pub category: i32,
+    /// Part of the record, matching this key's per-import kinds.
+    #[prost(enumeration = "HealthArea", tag = "2")]
+    pub area: i32,
+    /// Code-system identifier, as in HealthKind.
+    #[prost(string, tag = "3")]
+    pub system: ::prost::alloc::string::String,
+    /// Kind's code, as in HealthKind.
+    #[prost(string, tag = "4")]
+    pub code: ::prost::alloc::string::String,
+    /// Kind name from Ark terminology or a code-based fallback, as in HealthKind.
+    #[prost(string, tag = "5")]
+    pub name: ::prost::alloc::string::String,
+    /// Distinct resource identities across all imports, at least one.
+    #[prost(uint64, tag = "6")]
+    pub count: u64,
+    /// Known times of these distinct entries, absent if unknown.
+    #[prost(message, optional, tag = "7")]
+    pub time_span: ::core::option::Option<HealthTimeSpan>,
+    /// Sorted distinct protected categories, as in HealthKind.
+    #[prost(enumeration = "HealthProtectedCategory", repeated, tag = "8")]
+    pub protected_categories: ::prost::alloc::vec::Vec<i32>,
+}
+/// Unsupported resource counts at the approved level.
 /// Each count is at most 2 million. Unplaced is a subset of other, so hosts
 /// must not add it again when displaying the unsupported total.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct HealthUnsupportedCounts {
-    /// Attachment resources, 0 through 2 million, without file names or content.
+    /// Attachment resources, 0 through 2 million.
     #[prost(uint64, tag = "1")]
     pub attachment: u64,
-    /// Other resources including unplaced entries, 0 through 2 million, no names.
+    /// Other resources including unplaced entries, 0 through 2 million.
     #[prost(uint64, tag = "2")]
     pub other: u64,
-    /// Invalid entries, 0 through 2 million, without rejected input excerpts.
+    /// Invalid entries, 0 through 2 million.
     #[prost(uint64, tag = "3")]
     pub invalid: u64,
-    /// Unplaced entries also included in other, 0 through other, without codes.
+    /// Unplaced entries also included in other, 0 through other.
     #[prost(uint64, tag = "4")]
     pub unplaced: u64,
 }
-/// Prompt request to delete one committed import, without resource selectors.
+/// Prompt request to delete one committed import.
 /// Requires unlocked storage. The 120s prompt names the import, its received
 /// date and how many kinds it touches. The response waits for approved deletion
 /// of the import, index and dependent cached views. Other imports remain intact.
 /// An absent import returns HEALTH_ERRORS_IMPORT_UNKNOWN without a prompt.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct HealthDeleteRequest {
-    /// Exactly 16 random bytes from an import response, never a resource id.
+    /// Exactly 16 random bytes from an import response.
     #[prost(bytes = "vec", tag = "1")]
     pub import_id: ::prost::alloc::vec::Vec<u8>,
 }
-/// Empty acknowledgement of approved deletion, without deleted content or ids.
+/// Empty acknowledgement of approved deletion.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct HealthDeleteResponse {}
 /// ReservedErrors names the assigned protocol-wide errors in the reserved range
@@ -1767,32 +1807,33 @@ impl SlotConfidence {
         }
     }
 }
-/// Request failures carried in ArkToHost.err, never in a successful health body.
-/// Error.msg is fixed wording without input excerpts, values, names or resource
-/// ids. Prompt declines, expiries and delivery failures use ReservedErrors
-/// UNAUTHORIZED, UNCONFIRMED and UNDELIVERED, respectively.
+/// Request failures carried in ArkToHost.err.
+/// Error.msg uses fixed wording. Input excerpts, values, names, resource ids,
+/// paths and internal diagnostics are excluded. Prompt declines, expiries and
+/// delivery failures use ReservedErrors UNAUTHORIZED, UNCONFIRMED and
+/// UNDELIVERED, respectively.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
 pub enum HealthErrors {
-    /// Unset code, never sent as a health error.
+    /// Unset code, invalid as a health error.
     Unspecified = 0,
-    /// Invalid size, chunk or id, without identifying the rejected content.
+    /// Invalid size, chunk or id.
     RequestInvalid = 2305,
-    /// Locked owner storage, without revealing any import metadata.
+    /// Locked owner storage.
     StorageLocked = 2306,
-    /// Occupied import or prompt capacity, without identifying its holder.
+    /// Occupied import or prompt capacity.
     Busy = 2307,
-    /// Absent, expired or foreign upload session, without identifying its holder.
+    /// Absent, expired or foreign upload session.
     SessionUnknown = 2308,
-    /// Wrong upload state for this request, without import content.
+    /// Wrong upload state for this request.
     SessionState = 2309,
-    /// Received bytes below the declared size, without echoed bytes.
+    /// Received bytes below the declared size.
     UploadIncomplete = 2310,
-    /// Absent committed import, without a resource id or file path.
+    /// Absent committed import.
     ImportUnknown = 2311,
-    /// Failed storage operation, without paths or internal diagnostics.
+    /// Failed storage operation.
     StorageFailed = 2312,
-    /// Exceeded size, resource count or response limit, without input excerpts.
+    /// Exceeded size, resource count or response limit.
     Limit = 2313,
 }
 impl HealthErrors {
@@ -1831,17 +1872,17 @@ impl HealthErrors {
         }
     }
 }
-/// One processing state, without phases, resource names or free-text diagnostics.
+/// Processing state of one upload.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
 pub enum HealthImportState {
-    /// Unset state, never sent in a successful processing response.
+    /// Unset state, invalid in a processing response.
     Unspecified = 0,
-    /// Parsing, indexing or committing, without identifying the current resource.
+    /// Import processing in progress.
     Processing = 1,
-    /// Committed import with its summary, without exposing resource content.
+    /// Committed import with its summary.
     Done = 2,
-    /// Failed import with no commit, without input excerpts.
+    /// Failed import with no commit.
     Failed = 3,
 }
 impl HealthImportState {
@@ -1868,21 +1909,56 @@ impl HealthImportState {
         }
     }
 }
-/// One terminal import failure, without free text, values, source names or ids.
+/// Work in progress while an import is processing.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum HealthImportPhase {
+    /// No active phase, required in DONE and FAILED.
+    Unspecified = 0,
+    /// Writing the import file.
+    Storing = 1,
+    /// Building the import's index.
+    Indexing = 2,
+}
+impl HealthImportPhase {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "HEALTH_IMPORT_PHASE_UNSPECIFIED",
+            Self::Storing => "HEALTH_IMPORT_PHASE_STORING",
+            Self::Indexing => "HEALTH_IMPORT_PHASE_INDEXING",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "HEALTH_IMPORT_PHASE_UNSPECIFIED" => Some(Self::Unspecified),
+            "HEALTH_IMPORT_PHASE_STORING" => Some(Self::Storing),
+            "HEALTH_IMPORT_PHASE_INDEXING" => Some(Self::Indexing),
+            _ => None,
+        }
+    }
+}
+/// Terminal import failure reported by a fixed code.
+/// Input excerpts, values, names, resource ids and internal diagnostics are
+/// excluded, as with HealthErrors.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
 pub enum HealthImportFailure {
     /// No failure, required in PROCESSING and DONE and forbidden in FAILED.
     Unspecified = 0,
-    /// Input is not a supported FHIR R4 JSON or NDJSON stream, without excerpts.
+    /// Input is not a supported FHIR R4 JSON or NDJSON stream.
     NotFhir = 1,
-    /// More than one distinct patient, without patient names or identifiers.
+    /// More than one distinct patient.
     SeveralPatients = 2,
-    /// Identical received bytes are already imported, without identifying them.
+    /// Identical received bytes are already imported.
     AlreadyImported = 3,
-    /// Import, resource or count limit exceeded, without identifying a resource.
+    /// Import, resource or count limit exceeded.
     Limit = 4,
-    /// Import or index could not be stored, without paths or internal diagnostics.
+    /// Import or index could not be stored.
     StorageFailed = 5,
 }
 impl HealthImportFailure {
@@ -1913,17 +1989,17 @@ impl HealthImportFailure {
         }
     }
 }
-/// Detected file shape, without a Bundle subtype, file name or source identity.
+/// Detected shape of a FHIR stream.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
 pub enum HealthFileKind {
-    /// Unset kind, never sent for a committed import.
+    /// Unset kind, invalid for a committed import.
     Unspecified = 0,
-    /// One Bundle of any type, without its title or source.
+    /// One Bundle of any type.
     Bundle = 1,
-    /// Newline-delimited resources, without original file names.
+    /// Newline-delimited resources.
     Ndjson = 2,
-    /// One resource outside a Bundle, without its resource type or id.
+    /// One resource outside a Bundle.
     SingleResource = 3,
 }
 impl HealthFileKind {
@@ -1950,25 +2026,22 @@ impl HealthFileKind {
         }
     }
 }
-/// Content-derived import name from a fixed vocabulary, never an input string.
-/// The Ark chooses using only unprotected entries, independent of details level.
+/// Content-derived import name chosen by the Ark from unprotected kinds.
+/// The first matching rule wins: single kind, all lab results, hospital stay,
+/// then health record. The name is independent of the approved details level.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
 pub enum HealthImportName {
-    /// Unset name, never sent in approved details.
+    /// Unset name, invalid in approved details.
     Unspecified = 0,
-    /// Generic health records, including an import with no unprotected kinds.
-    HealthRecords = 1,
-    /// Lab results, without naming the lab, tests or their values.
+    /// Health record, including an import with no unprotected kinds.
+    HealthRecord = 1,
+    /// Every unprotected kind is a lab result, with at least two kinds.
     LabResults = 2,
-    /// Hospital stay, without naming the hospital, people or diagnoses.
+    /// A hospital stay among the import's unprotected visits.
     HospitalStay = 3,
-    /// Clinical records, without names of people, sources or protected categories.
-    ClinicalRecords = 4,
-    /// Measurements, without names of devices or any measured values.
-    Measurements = 5,
-    /// Signals, without a source name or any waveform samples.
-    Signals = 6,
+    /// Exactly one unprotected kind; the host uses that kind's name.
+    SingleKind = 4,
 }
 impl HealthImportName {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -1978,39 +2051,35 @@ impl HealthImportName {
     pub fn as_str_name(&self) -> &'static str {
         match self {
             Self::Unspecified => "HEALTH_IMPORT_NAME_UNSPECIFIED",
-            Self::HealthRecords => "HEALTH_IMPORT_NAME_HEALTH_RECORDS",
+            Self::HealthRecord => "HEALTH_IMPORT_NAME_HEALTH_RECORD",
             Self::LabResults => "HEALTH_IMPORT_NAME_LAB_RESULTS",
             Self::HospitalStay => "HEALTH_IMPORT_NAME_HOSPITAL_STAY",
-            Self::ClinicalRecords => "HEALTH_IMPORT_NAME_CLINICAL_RECORDS",
-            Self::Measurements => "HEALTH_IMPORT_NAME_MEASUREMENTS",
-            Self::Signals => "HEALTH_IMPORT_NAME_SIGNALS",
+            Self::SingleKind => "HEALTH_IMPORT_NAME_SINGLE_KIND",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
     pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
         match value {
             "HEALTH_IMPORT_NAME_UNSPECIFIED" => Some(Self::Unspecified),
-            "HEALTH_IMPORT_NAME_HEALTH_RECORDS" => Some(Self::HealthRecords),
+            "HEALTH_IMPORT_NAME_HEALTH_RECORD" => Some(Self::HealthRecord),
             "HEALTH_IMPORT_NAME_LAB_RESULTS" => Some(Self::LabResults),
             "HEALTH_IMPORT_NAME_HOSPITAL_STAY" => Some(Self::HospitalStay),
-            "HEALTH_IMPORT_NAME_CLINICAL_RECORDS" => Some(Self::ClinicalRecords),
-            "HEALTH_IMPORT_NAME_MEASUREMENTS" => Some(Self::Measurements),
-            "HEALTH_IMPORT_NAME_SIGNALS" => Some(Self::Signals),
+            "HEALTH_IMPORT_NAME_SINGLE_KIND" => Some(Self::SingleKind),
             _ => None,
         }
     }
 }
-/// One visible data category, without a resource type, source name or value.
+/// Category of a visible kind of data.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
 pub enum HealthCategory {
-    /// Unset category, never sent for a kind.
+    /// Unset category, invalid for a kind.
     Unspecified = 0,
-    /// Clinical records, without attachment, packaging or invalid entries.
+    /// Clinical records.
     Clinical = 1,
-    /// Measurements, without individual readings.
+    /// Measurements.
     Measurement = 2,
-    /// Signal recordings, without waveform samples.
+    /// Signal recordings.
     Signal = 3,
 }
 impl HealthCategory {
@@ -2037,21 +2106,91 @@ impl HealthCategory {
         }
     }
 }
-/// One protected category, never a diagnosis, test result or free-text label.
+/// Part of the health record assigned by the Ark from resource types and the
+/// classification of clinical Observations. Hosts group further by code.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum HealthArea {
+    /// Measurements and signals, whose groups come from their codes.
+    Unspecified = 0,
+    /// Clinical Observations classified as lab results.
+    LabResults = 1,
+    /// Other clinical Observations, such as surveys and scores.
+    OtherObservations = 2,
+    /// Conditions.
+    Conditions = 3,
+    /// Medications and their prescriptions, statements, dispensing or administration.
+    Medications = 4,
+    /// Immunizations.
+    Vaccines = 5,
+    /// Allergies and intolerances.
+    Allergies = 6,
+    /// Procedures.
+    Procedures = 7,
+    /// Encounters, including hospital stays.
+    Visits = 8,
+    /// Diagnostic reports.
+    Reports = 9,
+    /// Imaging studies.
+    Imaging = 10,
+    /// Family member history.
+    FamilyHistory = 11,
+}
+impl HealthArea {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "HEALTH_AREA_UNSPECIFIED",
+            Self::LabResults => "HEALTH_AREA_LAB_RESULTS",
+            Self::OtherObservations => "HEALTH_AREA_OTHER_OBSERVATIONS",
+            Self::Conditions => "HEALTH_AREA_CONDITIONS",
+            Self::Medications => "HEALTH_AREA_MEDICATIONS",
+            Self::Vaccines => "HEALTH_AREA_VACCINES",
+            Self::Allergies => "HEALTH_AREA_ALLERGIES",
+            Self::Procedures => "HEALTH_AREA_PROCEDURES",
+            Self::Visits => "HEALTH_AREA_VISITS",
+            Self::Reports => "HEALTH_AREA_REPORTS",
+            Self::Imaging => "HEALTH_AREA_IMAGING",
+            Self::FamilyHistory => "HEALTH_AREA_FAMILY_HISTORY",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "HEALTH_AREA_UNSPECIFIED" => Some(Self::Unspecified),
+            "HEALTH_AREA_LAB_RESULTS" => Some(Self::LabResults),
+            "HEALTH_AREA_OTHER_OBSERVATIONS" => Some(Self::OtherObservations),
+            "HEALTH_AREA_CONDITIONS" => Some(Self::Conditions),
+            "HEALTH_AREA_MEDICATIONS" => Some(Self::Medications),
+            "HEALTH_AREA_VACCINES" => Some(Self::Vaccines),
+            "HEALTH_AREA_ALLERGIES" => Some(Self::Allergies),
+            "HEALTH_AREA_PROCEDURES" => Some(Self::Procedures),
+            "HEALTH_AREA_VISITS" => Some(Self::Visits),
+            "HEALTH_AREA_REPORTS" => Some(Self::Reports),
+            "HEALTH_AREA_IMAGING" => Some(Self::Imaging),
+            "HEALTH_AREA_FAMILY_HISTORY" => Some(Self::FamilyHistory),
+            _ => None,
+        }
+    }
+}
+/// Protected category assigned to a resource by the Ark.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
 pub enum HealthProtectedCategory {
-    /// Unset category, never an element of a kind's protected categories.
+    /// Unset category, invalid in a kind's protected categories.
     Unspecified = 0,
-    /// HIV-related entries, without results or values.
+    /// HIV-related entries.
     Hiv = 1,
-    /// Sexual and reproductive health, without results or values.
+    /// Sexual and reproductive health.
     SexualReproductive = 2,
-    /// Mental health, without results or values.
+    /// Mental health.
     MentalHealth = 3,
-    /// Substance use, without results or values.
+    /// Substance use.
     SubstanceUse = 4,
-    /// Genetic tests, without variants, results or values.
+    /// Genetic tests.
     GeneticTests = 5,
 }
 impl HealthProtectedCategory {

@@ -45,13 +45,19 @@
     {
       "accepted": true,
       "direction": "ark_to_host",
-      "hex": "0801a29001050801108827",
-      "name": "process-processing"
+      "hex": "0801a29001070801100118c413",
+      "name": "process-storing"
     },
     {
       "accepted": true,
       "direction": "ark_to_host",
-      "hex": "0801a2900139080210904e22320a10000102030405060708090a0b0c0d0e0f102a1801220e08011002180320042805300638072802300338044204080a1014",
+      "hex": "0801a29001070801100218cc3a",
+      "name": "process-indexing"
+    },
+    {
+      "accepted": true,
+      "direction": "ark_to_host",
+      "hex": "0801a2900139080218904e2a320a10000102030405060708090a0b0c0d0e0f102a1801220e08011002180320042805300638072802300338044204080a1014",
       "name": "process-done"
     },
     {
@@ -111,13 +117,13 @@
     {
       "accepted": true,
       "direction": "ark_to_host",
-      "hex": "0801ba90015608781a520a10000102030405060708090a0b0c0d0e0f1005182a204028203204080a10143a240802120b75726e3a6578616d706c651a014122064b696e64204128033204080a1014380240024a080801100218032001",
+      "hex": "0801ba9001ca0108781a540a10000102030405060708090a0b0c0d0e0f1004182a204028203204080a10143a26080110011a0b75726e3a6578616d706c652201412a064b696e64204130033a04080a1014480240024a0808011002180320011a4a0a10101112131415161718191a1b1c1d1e1f100418322040282032040814101e3a26080110011a0b75726e3a6578616d706c652201412a064b696e64204130023a040814101e48014a002224080110011a0b75726e3a6578616d706c652201412a064b696e64204130043a04080a101e",
       "name": "details-counts-only-protected"
     },
     {
       "accepted": true,
       "direction": "ark_to_host",
-      "hex": "0801ba90018201087810011a7c0a10000102030405060708090a0b0c0d0e0f1005182a204028203204080a10143a240802120b75726e3a6578616d706c651a014122064b696e64204128033204080a101438023a280802120b75726e3a6578616d706c651a014222064b696e64204228023204080a101438014202030540024a080801100218032001",
+      "hex": "0801ba9001a302087810011a80010a10000102030405060708090a0b0c0d0e0f1004182a204028203204080a10143a26080110011a0b75726e3a6578616d706c652201412a064b696e64204130033a04080a101448023a2a080110021a0b75726e3a6578616d706c652201422a064b696e64204230023a04080a101442020305480240024a0808011002180320011a4a0a10101112131415161718191a1b1c1d1e1f100418322040282032040814101e3a26080110011a0b75726e3a6578616d706c652201412a064b696e64204130023a040814101e48014a002224080110011a0b75726e3a6578616d706c652201412a064b696e64204130043a04080a101e2228080110021a0b75726e3a6578616d706c652201422a064b696e64204230023a04080a101442020305",
       "name": "details-protected-kinds"
     },
     {
@@ -135,8 +141,14 @@
     {
       "accepted": true,
       "direction": "ark_to_host",
-      "hex": "0801a290010408031863",
+      "hex": "0801a290010408032063",
       "name": "process-unknown-failure-code"
+    },
+    {
+      "accepted": true,
+      "direction": "ark_to_host",
+      "hex": "0801a290010408011063",
+      "name": "process-unknown-phase-code"
     },
     {
       "accepted": false,
@@ -147,13 +159,19 @@
     {
       "accepted": false,
       "direction": "ark_to_host",
-      "hex": "0801a29001050802220208",
+      "hex": "0801a290010508022a0208",
       "name": "process-truncated-summary"
     },
     {
       "accepted": false,
       "direction": "ark_to_host",
-      "hex": "0801a290010a08031a066661696c6564",
+      "hex": "0801a29001050801120161",
+      "name": "process-phase-is-not-text"
+    },
+    {
+      "accepted": false,
+      "direction": "ark_to_host",
+      "hex": "0801a290010a080322066661696c6564",
       "name": "process-failure-is-not-text"
     },
     {
@@ -165,8 +183,26 @@
     {
       "accepted": false,
       "direction": "ark_to_host",
-      "hex": "0801ba9001071a053a032201ff",
+      "hex": "0801ba9001071a053a032a01ff",
       "name": "details-invalid-kind-name"
+    },
+    {
+      "accepted": false,
+      "direction": "ark_to_host",
+      "hex": "0801ba90010522032a01ff",
+      "name": "details-invalid-overview-name"
+    },
+    {
+      "accepted": false,
+      "direction": "ark_to_host",
+      "hex": "0801ba9001052203120161",
+      "name": "details-overview-area-is-not-text"
+    },
+    {
+      "accepted": false,
+      "direction": "ark_to_host",
+      "hex": "0801ba900103220208",
+      "name": "details-truncated-overview"
     },
     {
       "accepted": false,
@@ -183,31 +219,31 @@
     {
       "accepted": true,
       "direction": "ark_to_host",
-      "hex": "0801a290010408031801",
+      "hex": "0801a290010408032001",
       "name": "not-fhir"
     },
     {
       "accepted": true,
       "direction": "ark_to_host",
-      "hex": "0801a290010408031802",
+      "hex": "0801a290010408032002",
       "name": "several-patients"
     },
     {
       "accepted": true,
       "direction": "ark_to_host",
-      "hex": "0801a290010408031803",
+      "hex": "0801a290010408032003",
       "name": "already-imported"
     },
     {
       "accepted": true,
       "direction": "ark_to_host",
-      "hex": "0801a290010408031804",
+      "hex": "0801a290010408032004",
       "name": "over-limit"
     },
     {
       "accepted": true,
       "direction": "ark_to_host",
-      "hex": "0801a290010408031805",
+      "hex": "0801a290010408032005",
       "name": "storage-failed"
     },
     {

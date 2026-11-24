@@ -59,17 +59,21 @@ A host runs an app through `exec_create`, `exec_load` and `exec_start`. Creation
 
 ## Health imports
 
-A host imports FHIR R4 through `health_import_start`, `health_import_chunk` and `health_import_process`. Starting sends the size and first chunk and waits for the owner's approval in Ark Companion. No label or file name is sent. The response returns an upload handle scoped to the host session. Chunks follow in order. Processing returns a state, progress and either the committed import's summary or a failure enum. `health_import_cancel` discards temporary upload state.
+A host imports FHIR R4 through `health_import_start`, `health_import_chunk` and `health_import_process`. Starting sends the size and first chunk and waits for the owner's approval in Ark Companion. The response returns an upload handle scoped to the host session. Chunks follow in order. Processing reports its state, active phase (storing or indexing) and overall progress, followed by the committed import's summary or a failure code. `health_import_cancel` discards temporary upload state.
 
 `health_list` needs no prompt and returns only each import's 16-byte random id, received time and file kind. Hosts number imports by received time, breaking ties by id. File kinds distinguish Bundles of any type, NDJSON and single resources.
 
 `health_details` requests a window at one `include_protected` level. The phone confirms that level. Calls from the same host session at that level reuse the window without extending it. The response reports its remaining seconds, independently of the phone's decision timeout. Hosts hide details when that time reaches zero. A different level requires another decision; disconnecting or locking closes access.
 
-Details contain import names from a fixed enum, received and stored sizes, time spans, and kinds with codes, names, resource counts and deletion counts. Kind names use Ark terminology or a code-based fallback, never FHIR text or display strings. Protected kinds appear only at the approved higher level; otherwise each import exposes one protected count. Hidden protected entries contribute neither kind metadata, clinical times nor unsupported class counts. The import name always ignores protected entries. Attachment, other, invalid and unplaced counts describe unsupported entries; unplaced is already included in other.
+Details describe each import's name, received and stored sizes, time span and kinds of data. Import names use only unprotected kinds, in this order of precedence: the single kind's name, Lab results when every kind is a lab result, Hospital stay when its visits include one, or Health record. An import with no unprotected kinds is a Health record.
 
-The process summary describes what the host uploaded, so its counts and time span include protected entries. Neither summaries nor details contain values, narrative, source names or resource ids. `health_delete` waits for phone approval to delete one import. Approval declines, expiries and delivery failures use the reserved envelope errors; other request failures use `HealthErrors`.
+Each import's `HealthKind` carries a category, an area assigned by the Ark, a code, a name, a distinct resource count, a time span and `unique_entries`. The last field counts entries that disappear when that import is deleted. The response's `HealthKindOverview` list counts each resource identity once per kind across all imports and gives its time span. Hosts join the lists on category, system, code and protected categories. Clinical areas distinguish lab results, other observations, conditions, medications, vaccines, allergies, procedures, visits, reports, imaging and family history. Measurement and signal areas are unspecified; hosts group them by code.
 
-The health range is `0x901-0xA00`. [The schema](proto/wire.proto) defines field limits, count semantics and session lifetimes. Applications enforce semantic constraints; generated protobuf codecs only enforce wire encoding. The proof of concept uses overall processing progress, a small terminology table and complete lists without pagination. A reply exceeding the wire limit fails instead of returning a partial list.
+Kind names use Ark terminology or a code-based fallback. Protected kinds appear only at the approved higher level; otherwise each import exposes one protected count. Hidden protected entries contribute only to that count. Attachment, other, invalid and unplaced counts describe unsupported entries; unplaced is already included in other. Received time and sizes cover the whole import at either level.
+
+The process summary describes what the host uploaded, so its counts and time span include protected entries. Summaries and details exclude values, narrative, source names and resource ids. `health_delete` waits for phone approval to delete one import. Approval declines, expiries and delivery failures use the reserved envelope errors; other request failures use `HealthErrors` with fixed wording.
+
+The health range is `0x901-0xA00`. [The schema](proto/wire.proto) defines field limits, count semantics and session lifetimes. Applications enforce semantic constraints; generated protobuf codecs only enforce wire encoding. The proof of concept estimates progress across both processing phases, uses a small terminology table and returns complete lists within the wire limit. An oversized reply fails with the limit error.
 
 ## Timeouts and clocks
 
@@ -83,7 +87,7 @@ The `vectors` directory holds golden transcripts for validating third-party clie
 
 `vectors/health.json` contains invented plaintext protobuf envelopes for every health request and response, processing failures, protected details and request errors. Each case records its direction, hexadecimal bytes and expected wire acceptance. These fixtures pin tags, enum values, id bytes and optional-message presence. Application validation is separate from wire acceptance. The same cases seed the envelope fuzzer.
 
-`make generate`, `make vectors` and `make fuzz-seeds` regenerate the bindings, vectors and seeds. Set `CARGO_NET_OFFLINE=true` to use cached dependencies. When nextest is unavailable, `TEST_RUNNER='cargo test --locked --offline'` selects Cargo's runner for vectors and seeds. CI checks that regeneration leaves the tracked artifacts unchanged.
+`make generate`, `make vectors` and `make fuzz-seeds` regenerate the bindings, vectors and seeds. Set `CARGO_NET_OFFLINE=true` to use cached dependencies. Vectors and seeds require cargo-nextest. CI checks that regeneration leaves the tracked artifacts unchanged.
 
 ## Stability
 

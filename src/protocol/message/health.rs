@@ -78,11 +78,12 @@ fn summary() -> HealthImportSummary {
     }
 }
 
-/// Returns invented prompted details with a second kind at the protected level.
+/// Returns overlapping imports with a second kind at the protected level.
 fn details(include_protected: bool) -> HealthDetailsResponse {
     // Keep public metadata identical at both approval levels
     let mut kinds = vec![HealthKind {
-        category: HealthCategory::Measurement.into(),
+        category: HealthCategory::Clinical.into(),
+        area: HealthArea::LabResults.into(),
         system: "urn:example".into(),
         code: "A".into(),
         name: "Kind A".into(),
@@ -91,17 +92,44 @@ fn details(include_protected: bool) -> HealthDetailsResponse {
         unique_entries: 2,
         protected_categories: Vec::new(),
     }];
+    let mut overview = vec![HealthKindOverview {
+        category: HealthCategory::Clinical.into(),
+        area: HealthArea::LabResults.into(),
+        system: "urn:example".into(),
+        code: "A".into(),
+        name: "Kind A".into(),
+        count: 4,
+        time_span: Some(HealthTimeSpan {
+            first: 10,
+            last: 30,
+        }),
+        protected_categories: Vec::new(),
+    }];
 
     // A resource in several protected categories still counts once
     if include_protected {
         kinds.push(HealthKind {
-            category: HealthCategory::Measurement.into(),
+            category: HealthCategory::Clinical.into(),
+            area: HealthArea::OtherObservations.into(),
             system: "urn:example".into(),
             code: "B".into(),
             name: "Kind B".into(),
             count: 2,
             time_span: Some(time_span()),
-            unique_entries: 1,
+            unique_entries: 2,
+            protected_categories: vec![
+                HealthProtectedCategory::MentalHealth.into(),
+                HealthProtectedCategory::GeneticTests.into(),
+            ],
+        });
+        overview.push(HealthKindOverview {
+            category: HealthCategory::Clinical.into(),
+            area: HealthArea::OtherObservations.into(),
+            system: "urn:example".into(),
+            code: "B".into(),
+            name: "Kind B".into(),
+            count: 2,
+            time_span: Some(time_span()),
             protected_categories: vec![
                 HealthProtectedCategory::MentalHealth.into(),
                 HealthProtectedCategory::GeneticTests.into(),
@@ -113,22 +141,52 @@ fn details(include_protected: bool) -> HealthDetailsResponse {
     HealthDetailsResponse {
         remaining_seconds: 120,
         include_protected,
-        imports: vec![HealthImportDetails {
-            import_id: import_id(),
-            name: HealthImportName::Measurements.into(),
-            received: 42,
-            received_size: 64,
-            stored_size: 32,
-            time_span: Some(time_span()),
-            kinds,
-            protected_entries: 2,
-            unsupported: Some(HealthUnsupportedCounts {
-                attachment: 1,
-                other: 2,
-                invalid: 3,
-                unplaced: 1,
-            }),
-        }],
+        imports: vec![
+            HealthImportDetails {
+                import_id: import_id(),
+                name: HealthImportName::SingleKind.into(),
+                received: 42,
+                received_size: 64,
+                stored_size: 32,
+                time_span: Some(time_span()),
+                kinds,
+                protected_entries: 2,
+                unsupported: Some(HealthUnsupportedCounts {
+                    attachment: 1,
+                    other: 2,
+                    invalid: 3,
+                    unplaced: 1,
+                }),
+            },
+            HealthImportDetails {
+                import_id: (16..32).collect(),
+                name: HealthImportName::SingleKind.into(),
+                received: 50,
+                received_size: 64,
+                stored_size: 32,
+                time_span: Some(HealthTimeSpan {
+                    first: 20,
+                    last: 30,
+                }),
+                kinds: vec![HealthKind {
+                    category: HealthCategory::Clinical.into(),
+                    area: HealthArea::LabResults.into(),
+                    system: "urn:example".into(),
+                    code: "A".into(),
+                    name: "Kind A".into(),
+                    count: 2,
+                    time_span: Some(HealthTimeSpan {
+                        first: 20,
+                        last: 30,
+                    }),
+                    unique_entries: 1,
+                    protected_categories: Vec::new(),
+                }],
+                protected_entries: 0,
+                unsupported: Some(HealthUnsupportedCounts::default()),
+            },
+        ],
+        kinds: overview,
     }
 }
 
@@ -186,29 +244,44 @@ fn cases() -> Vec<Case> {
             hex: "0801a29001020807",
         },
         Case {
-            name: "process-processing",
+            name: "process-storing",
             response: true,
             expected: Expected::Body(Ok(HealthImportProcessResponse {
                 state: HealthImportState::Processing.into(),
-                progress: 5000,
+                phase: HealthImportPhase::Storing.into(),
+                progress: 2500,
                 failure: HealthImportFailure::Unspecified.into(),
                 summary: None,
             }
             .into())),
-            hex: "0801a29001050801108827",
+            hex: "0801a29001070801100118c413",
+        },
+        Case {
+            name: "process-indexing",
+            response: true,
+            expected: Expected::Body(Ok(HealthImportProcessResponse {
+                state: HealthImportState::Processing.into(),
+                phase: HealthImportPhase::Indexing.into(),
+                progress: 7500,
+                failure: HealthImportFailure::Unspecified.into(),
+                summary: None,
+            }
+            .into())),
+            hex: "0801a29001070801100218cc3a",
         },
         Case {
             name: "process-done",
             response: true,
             expected: Expected::Body(Ok(HealthImportProcessResponse {
                 state: HealthImportState::Done.into(),
+                phase: HealthImportPhase::Unspecified.into(),
                 progress: 10000,
                 failure: HealthImportFailure::Unspecified.into(),
                 summary: Some(summary()),
             }
             .into())),
             hex: concat!(
-                "0801a2900139080210904e2232",
+                "0801a2900139080218904e2a32",
                 "0a10000102030405060708090a0b0c0d0e0f102a1801",
                 "220e0801100218032004280530063807",
                 "2802300338044204080a1014",
@@ -303,12 +376,18 @@ fn cases() -> Vec<Case> {
             response: true,
             expected: Expected::Body(Ok(details(false).into())),
             hex: concat!(
-                "0801ba90015608781a52",
-                "0a10000102030405060708090a0b0c0d0e0f1005182a20402820",
+                "0801ba9001ca0108781a54",
+                "0a10000102030405060708090a0b0c0d0e0f1004182a20402820",
                 "3204080a1014",
-                "3a240802120b75726e3a6578616d706c651a014122064b696e642041",
-                "28033204080a10143802",
+                "3a26080110011a0b75726e3a6578616d706c652201412a064b696e642041",
+                "30033a04080a10144802",
                 "40024a080801100218032001",
+                "1a4a0a10101112131415161718191a1b1c1d1e1f1004183220402820",
+                "32040814101e",
+                "3a26080110011a0b75726e3a6578616d706c652201412a064b696e642041",
+                "30023a040814101e48014a00",
+                "2224080110011a0b75726e3a6578616d706c652201412a064b696e642041",
+                "30043a04080a101e",
             ),
         },
         Case {
@@ -316,14 +395,22 @@ fn cases() -> Vec<Case> {
             response: true,
             expected: Expected::Body(Ok(details(true).into())),
             hex: concat!(
-                "0801ba90018201087810011a7c",
-                "0a10000102030405060708090a0b0c0d0e0f1005182a20402820",
+                "0801ba9001a302087810011a8001",
+                "0a10000102030405060708090a0b0c0d0e0f1004182a20402820",
                 "3204080a1014",
-                "3a240802120b75726e3a6578616d706c651a014122064b696e642041",
-                "28033204080a10143802",
-                "3a280802120b75726e3a6578616d706c651a014222064b696e642042",
-                "28023204080a1014380142020305",
+                "3a26080110011a0b75726e3a6578616d706c652201412a064b696e642041",
+                "30033a04080a10144802",
+                "3a2a080110021a0b75726e3a6578616d706c652201422a064b696e642042",
+                "30023a04080a1014420203054802",
                 "40024a080801100218032001",
+                "1a4a0a10101112131415161718191a1b1c1d1e1f1004183220402820",
+                "32040814101e",
+                "3a26080110011a0b75726e3a6578616d706c652201412a064b696e642041",
+                "30023a040814101e48014a00",
+                "2224080110011a0b75726e3a6578616d706c652201412a064b696e642041",
+                "30043a04080a101e",
+                "2228080110021a0b75726e3a6578616d706c652201422a064b696e642042",
+                "30023a04080a101442020305",
             ),
         },
         Case {
@@ -333,6 +420,7 @@ fn cases() -> Vec<Case> {
                 remaining_seconds: 1,
                 include_protected: false,
                 imports: vec![],
+                kinds: vec![],
             }
             .into())),
             hex: "0801ba9001020801",
@@ -348,12 +436,26 @@ fn cases() -> Vec<Case> {
             response: true,
             expected: Expected::Body(Ok(HealthImportProcessResponse {
                 state: HealthImportState::Failed.into(),
+                phase: HealthImportPhase::Unspecified.into(),
                 progress: 0,
                 failure: 99,
                 summary: None,
             }
             .into())),
-            hex: "0801a290010408031863",
+            hex: "0801a290010408032063",
+        },
+        Case {
+            name: "process-unknown-phase-code",
+            response: true,
+            expected: Expected::Body(Ok(HealthImportProcessResponse {
+                state: HealthImportState::Processing.into(),
+                phase: 99,
+                progress: 0,
+                failure: HealthImportFailure::Unspecified.into(),
+                summary: None,
+            }
+            .into())),
+            hex: "0801a290010408011063",
         },
         Case {
             name: "start-truncated-chunk",
@@ -365,13 +467,19 @@ fn cases() -> Vec<Case> {
             name: "process-truncated-summary",
             response: true,
             expected: Expected::Protobuf,
-            hex: "0801a29001050802220208",
+            hex: "0801a290010508022a0208",
+        },
+        Case {
+            name: "process-phase-is-not-text",
+            response: true,
+            expected: Expected::Protobuf,
+            hex: "0801a29001050801120161",
         },
         Case {
             name: "process-failure-is-not-text",
             response: true,
             expected: Expected::Protobuf,
-            hex: "0801a290010a08031a066661696c6564",
+            hex: "0801a290010a080322066661696c6564",
         },
         Case {
             name: "details-import-name-is-not-text",
@@ -383,7 +491,25 @@ fn cases() -> Vec<Case> {
             name: "details-invalid-kind-name",
             response: true,
             expected: Expected::Protobuf,
-            hex: "0801ba9001071a053a032201ff",
+            hex: "0801ba9001071a053a032a01ff",
+        },
+        Case {
+            name: "details-invalid-overview-name",
+            response: true,
+            expected: Expected::Protobuf,
+            hex: "0801ba90010522032a01ff",
+        },
+        Case {
+            name: "details-overview-area-is-not-text",
+            response: true,
+            expected: Expected::Protobuf,
+            hex: "0801ba9001052203120161",
+        },
+        Case {
+            name: "details-truncated-overview",
+            response: true,
+            expected: Expected::Protobuf,
+            hex: "0801ba900103220208",
         },
         Case {
             name: "delete-truncated-id",
@@ -406,27 +532,27 @@ fn failures() -> Vec<Case> {
         (
             "not-fhir",
             HealthImportFailure::NotFhir,
-            "0801a290010408031801",
+            "0801a290010408032001",
         ),
         (
             "several-patients",
             HealthImportFailure::SeveralPatients,
-            "0801a290010408031802",
+            "0801a290010408032002",
         ),
         (
             "already-imported",
             HealthImportFailure::AlreadyImported,
-            "0801a290010408031803",
+            "0801a290010408032003",
         ),
         (
             "over-limit",
             HealthImportFailure::Limit,
-            "0801a290010408031804",
+            "0801a290010408032004",
         ),
         (
             "storage-failed",
             HealthImportFailure::StorageFailed,
-            "0801a290010408031805",
+            "0801a290010408032005",
         ),
     ]
     .into_iter()
@@ -435,6 +561,7 @@ fn failures() -> Vec<Case> {
         response: true,
         expected: Expected::Body(Ok(HealthImportProcessResponse {
             state: HealthImportState::Failed.into(),
+            phase: HealthImportPhase::Unspecified.into(),
             progress: 0,
             failure: failure.into(),
             summary: None,
