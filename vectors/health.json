@@ -110,33 +110,39 @@
     },
     {
       "accepted": true,
-      "direction": "host_to_ark",
-      "hex": "0801ba9001020801",
-      "name": "details-protected-request"
-    },
-    {
-      "accepted": true,
       "direction": "ark_to_host",
-      "hex": "0801ba9001d40108781a540a10000102030405060708090a0b0c0d0e0f1004182a204028203204080a10143a26080110011a0b75726e3a6578616d706c652201412a064b696e64204130033a04080a1014480240024a0808011002180320011a4a0a10101112131415161718191a1b1c1d1e1f100418322040282032040814101e3a26080110011a0b75726e3a6578616d706c652201412a064b696e64204130023a040814101e48014a002224080110011a0b75726e3a6578616d706c652201412a064b696e64204130043a04080a101e280230063a04080a1014",
-      "name": "details-counts-only-protected"
-    },
-    {
-      "accepted": true,
-      "direction": "ark_to_host",
-      "hex": "0801ba9001ad02087810011a80010a10000102030405060708090a0b0c0d0e0f1004182a204028203204080a10143a26080110011a0b75726e3a6578616d706c652201412a064b696e64204130033a04080a101448023a2a080110021a0b75726e3a6578616d706c652201422a064b696e64204230023a04080a101442020305480240024a0808011002180320011a4a0a10101112131415161718191a1b1c1d1e1f100418322040282032040814101e3a26080110011a0b75726e3a6578616d706c652201412a064b696e64204130023a040814101e48014a002224080110011a0b75726e3a6578616d706c652201412a064b696e64204130043a04080a101e2228080110021a0b75726e3a6578616d706c652201422a064b696e64204230023a04080a101442020305280230063a04080a1014",
+      "hex": "0801ba9001cb020a80010a10000102030405060708090a0b0c0d0e0f1004182a204028203204080a10143a26080110011a0b75726e3a6578616d706c652201412a064b696e64204130033a04080a101448023a2a080110021a0b75726e3a6578616d706c652201422a064b696e64204230023a04080a101442020305480240024a0808011002180320010a4a0a10101112131415161718191a1b1c1d1e1f100418322040282032040814101e3a26080110011a0b75726e3a6578616d706c652201412a064b696e64204130023a040814101e48014a001224080110011a0b75726e3a6578616d706c652201412a064b696e64204130043a04080a101e1228080110021a0b75726e3a6578616d706c652201422a064b696e64204230023a04080a101442020305180220062a04080a10143220000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
       "name": "details-protected-kinds"
     },
     {
       "accepted": true,
       "direction": "ark_to_host",
-      "hex": "0801ba9001020801",
+      "hex": "0801ba9001223220202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
       "name": "details-empty"
     },
     {
       "accepted": true,
       "direction": "ark_to_host",
       "hex": "0801ba900100",
-      "name": "details-expired"
+      "name": "details-missing-digest-wire-valid"
+    },
+    {
+      "accepted": true,
+      "direction": "host_to_ark",
+      "hex": "0801c2900100",
+      "name": "digest-request"
+    },
+    {
+      "accepted": true,
+      "direction": "ark_to_host",
+      "hex": "0801c29001220a20000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "name": "digest-response"
+    },
+    {
+      "accepted": true,
+      "direction": "ark_to_host",
+      "hex": "0801c29001030a01ff",
+      "name": "digest-short-wire-valid"
     },
     {
       "accepted": true,
@@ -177,32 +183,50 @@
     {
       "accepted": false,
       "direction": "ark_to_host",
-      "hex": "0801ba9001071a051203616263",
+      "hex": "0801ba9001070a051203616263",
       "name": "details-import-name-is-not-text"
     },
     {
       "accepted": false,
       "direction": "ark_to_host",
-      "hex": "0801ba9001071a053a032a01ff",
+      "hex": "0801ba9001070a053a032a01ff",
       "name": "details-invalid-kind-name"
     },
     {
       "accepted": false,
       "direction": "ark_to_host",
-      "hex": "0801ba90010522032a01ff",
+      "hex": "0801ba90010512032a01ff",
       "name": "details-invalid-overview-name"
     },
     {
       "accepted": false,
       "direction": "ark_to_host",
-      "hex": "0801ba9001052203120161",
+      "hex": "0801ba9001051203120161",
       "name": "details-overview-area-is-not-text"
     },
     {
       "accepted": false,
       "direction": "ark_to_host",
-      "hex": "0801ba900103220208",
+      "hex": "0801ba900103120208",
       "name": "details-truncated-overview"
+    },
+    {
+      "accepted": false,
+      "direction": "ark_to_host",
+      "hex": "0801ba900103322000",
+      "name": "details-truncated-digest"
+    },
+    {
+      "accepted": false,
+      "direction": "ark_to_host",
+      "hex": "0801c29001030a2000",
+      "name": "digest-truncated-bytes"
+    },
+    {
+      "accepted": false,
+      "direction": "ark_to_host",
+      "hex": "0801c29001020801",
+      "name": "digest-is-not-integer"
     },
     {
       "accepted": false,

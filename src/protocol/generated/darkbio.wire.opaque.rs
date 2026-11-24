@@ -20,7 +20,7 @@ pub struct HostToArk {
     /// the Ark. The tags are grouped by area, each area with its own range.
     #[prost(
         oneof = "host_to_ark::Content",
-        tags = "256, 257, 258, 259, 260, 513, 514, 515, 516, 517, 769, 770, 771, 772, 773, 774, 1025, 1026, 1027, 1281, 1282, 1283, 1284, 1285, 1286, 1287, 1288, 1289, 1290, 1537, 1538, 1539, 1540, 1541, 1542, 1543, 1544, 1793, 2305, 2306, 2307, 2308, 2309, 2310, 2311, 4096"
+        tags = "256, 257, 258, 259, 260, 513, 514, 515, 516, 517, 769, 770, 771, 772, 773, 774, 1025, 1026, 1027, 1281, 1282, 1283, 1284, 1285, 1286, 1287, 1288, 1289, 1290, 1537, 1538, 1539, 1540, 1541, 1542, 1543, 1544, 1793, 2305, 2306, 2307, 2308, 2309, 2310, 2311, 2312, 4096"
     )]
     pub content: ::core::option::Option<host_to_ark::Content>,
 }
@@ -162,9 +162,12 @@ pub mod host_to_ark {
         /// One 16-byte import id to delete after a prompt, without resource ids.
         #[prost(bytes, tag = "2310")]
         HealthDelete(::prost::bytes::Bytes),
-        /// One protected-category level to approve, without values or selectors.
+        /// Complete details, including protected kinds, after a new prompt.
         #[prost(bytes, tag = "2311")]
         HealthDetails(::prost::bytes::Bytes),
+        /// Current details digest, without a prompt.
+        #[prost(bytes, tag = "2312")]
+        HealthDigest(::prost::bytes::Bytes),
         /// Unreleased messages served by development firmware only, carried opaquely
         /// so the public protocol is untouched while they are still under development.
         /// Their schema is private and production Arks refuse the envelope.
@@ -193,7 +196,7 @@ pub struct ArkToHost {
     /// request of its own. The tags are grouped by area, each area with its own range.
     #[prost(
         oneof = "ark_to_host::Content",
-        tags = "256, 257, 258, 259, 260, 513, 514, 515, 516, 517, 769, 770, 771, 772, 773, 774, 1025, 1026, 1027, 1281, 1282, 1283, 1284, 1285, 1286, 1287, 1288, 1289, 1290, 1537, 1538, 1539, 1540, 1541, 1542, 1543, 1544, 1793, 2305, 2306, 2307, 2308, 2309, 2310, 2311, 4096"
+        tags = "256, 257, 258, 259, 260, 513, 514, 515, 516, 517, 769, 770, 771, 772, 773, 774, 1025, 1026, 1027, 1281, 1282, 1283, 1284, 1285, 1286, 1287, 1288, 1289, 1290, 1537, 1538, 1539, 1540, 1541, 1542, 1543, 1544, 1793, 2305, 2306, 2307, 2308, 2309, 2310, 2311, 2312, 4096"
     )]
     pub content: ::core::option::Option<ark_to_host::Content>,
 }
@@ -338,6 +341,9 @@ pub mod ark_to_host {
         /// Approved metadata within the wire limit, without values or source names.
         #[prost(bytes, tag = "2311")]
         HealthDetails(::prost::bytes::Bytes),
+        /// Keyed digest of the complete details, without their content.
+        #[prost(bytes, tag = "2312")]
+        HealthDigest(::prost::bytes::Bytes),
         /// Unreleased messages emitted by development firmware only, in response to
         /// a develop request, carried opaquely so the public protocol is untouched
         /// while they are still under development. Their schema is private.

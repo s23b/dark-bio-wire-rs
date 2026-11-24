@@ -47,6 +47,7 @@ impl opaque::host_to_ark::Content {
             Self::HealthList(..) => "health_list",
             Self::HealthDelete(..) => "health_delete",
             Self::HealthDetails(..) => "health_details",
+            Self::HealthDigest(..) => "health_digest",
             Self::Develop(..) => "develop",
         }
     }
@@ -99,6 +100,7 @@ impl opaque::ark_to_host::Content {
             Self::HealthList(..) => "health_list",
             Self::HealthDelete(..) => "health_delete",
             Self::HealthDetails(..) => "health_details",
+            Self::HealthDigest(..) => "health_digest",
             Self::Develop(..) => "develop",
         }
     }

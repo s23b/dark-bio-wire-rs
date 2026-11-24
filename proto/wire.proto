@@ -100,8 +100,10 @@ message HostToArk {
     HealthListRequest health_list = 0x905;
     // One 16-byte import id to delete after a prompt, without resource ids.
     HealthDeleteRequest health_delete = 0x906;
-    // One protected-category level to approve, without values or selectors.
+    // Complete details, including protected kinds, after a new prompt.
     HealthDetailsRequest health_details = 0x907;
+    // Current details digest, without a prompt.
+    HealthDigestRequest health_digest = 0x908;
 
     // Unreleased messages served by development firmware only, carried opaquely
     // so the public protocol is untouched while they are still under development.
@@ -204,6 +206,8 @@ message ArkToHost {
     HealthDeleteResponse health_delete = 0x906;
     // Approved metadata within the wire limit, without values or source names.
     HealthDetailsResponse health_details = 0x907;
+    // Keyed digest of the complete details, without their content.
+    HealthDigestResponse health_digest = 0x908;
 
     // Unreleased messages emitted by development firmware only, in response to
     // a develop request, carried opaquely so the public protocol is untouched
@@ -1114,50 +1118,65 @@ message HealthImportInfo {
   HealthFileKind file_kind = 3;
 }
 
-// Prompt request for metadata about all imports.
-// Approval opens a window for this host wire session and this exact level.
-// Calls at that level reuse the unexpired window without a prompt or extension.
-// A different level requires its own decision and replaces the active window
-// only on approval. Disconnect, lock or expiry closes access. The phone prompt
-// allows 120s for a decision; the access window starts after approval.
-// TODO(fhir-import-2): the host selects the level and the phone confirms it.
+// Empty request for complete metadata about all imports and kinds of data.
+// Requires unlocked storage and a new details prompt on every request.
+// The Ark keeps no approval state between requests. The phone allows 120s for
+// a decision. Its prompt states that the computer receives names, counts and
+// date ranges, including protected categories, and may keep a copy, never values.
 message HealthDetailsRequest {
-  // Whether protected kinds may appear in the approved details.
-  bool include_protected = 1;
 }
 
-// Complete approved metadata for each import and the kinds across all imports.
+// Complete approved metadata, including protected kinds and a freshness digest.
+// Every response requires a new details prompt, even in the same host session.
 // An oversized complete reply returns HEALTH_ERRORS_LIMIT.
 // Applications enforce these content rules; generated codecs do not validate
-// string meanings, id lengths, enum membership or cross-field constraints.
+// string meanings, byte lengths, enum membership or cross-field constraints.
 message HealthDetailsResponse {
-  // Remaining access time in seconds, rounded down, independent of prompt time.
-  // Zero means the host must hide details; calls leave the deadline unchanged.
-  uint32 remaining_seconds = 1;
-  // Approved level matching the request.
-  bool include_protected = 2;
   // All imports sorted as HealthListResponse, within the wire message limit.
   // Empty if none exist.
-  repeated HealthImportDetails imports = 3;
-  // Kinds visible at this level across all imports, sorted by category, system,
-  // code and protected-category set, as each import's kinds are.
-  repeated HealthKindOverview kinds = 4;
-  // Distinct protected resource identities across all imports, at either level.
-  // Multiple codings or protected categories count once; no dates are exposed.
-  uint64 protected_entries = 5;
-  // Distinct attachment, other and invalid identities visible at this level
-  // across all imports. Unplaced entries are already included in other.
-  // Hidden protected entries and packaging are excluded.
-  uint64 unsupported_entries = 6;
+  repeated HealthImportDetails imports = 1;
+  // All kinds, including protected kinds, sorted by category, system, code
+  // and protected-category set, as each import's kinds are.
+  repeated HealthKindOverview kinds = 2;
+  // Distinct protected resource identities across all imports.
+  // Multiple codings or protected categories count once.
+  uint64 protected_entries = 3;
+  // Distinct attachment, other and invalid identities across all imports,
+  // including protected entries. Unplaced entries are included in other.
+  // Packaging is excluded.
+  uint64 unsupported_entries = 4;
   // Known times of those distinct unsupported entries, absent if unknown.
-  // Each identity uses its newest visible unsupported copy, by export time
+  // Each identity uses its newest unsupported copy, by export time
   // else received time, and its last occurrence within that import.
-  HealthTimeSpan unsupported_time_span = 7;
+  HealthTimeSpan unsupported_time_span = 5;
+  // Exactly 32 bytes of HMAC-SHA256 over a canonical encoding of every field
+  // in this response except digest, including all nested fields and presence.
+  // This covers imports, kinds, names, counts, spans, protected tags and totals.
+  // Importing, deleting or changing names or classification changes the digest.
+  // The Ark creates and persists a secret 32-byte key once, separate from its
+  // opaque-id key, and domain-separates this use. Keying prevents a host without
+  // approval from testing guesses about the details against the digest.
+  bytes digest = 6;
+}
+
+// Empty request for the current complete details digest.
+// Requires unlocked storage, like every health request, but never a prompt.
+// Hosts compare it with a saved `HealthDetailsResponse` from the same Ark to
+// check whether that copy still matches, without receiving the details again.
+message HealthDigestRequest {
+}
+
+// Keyed digest of the current complete details, returned without a prompt.
+// Applications enforce its length; generated codecs only check wire encoding.
+message HealthDigestResponse {
+  // Exactly 32 bytes, computed as `HealthDetailsResponse.digest` over the same
+  // complete metadata. Equal while that metadata and the Ark's key are unchanged.
+  bytes digest = 1;
 }
 
 // Content-derived import name chosen by the Ark from unprotected kinds.
 // The first matching rule wins: single kind, all lab results, hospital stay,
-// then health record. The name is independent of the approved details level.
+// then health record.
 enum HealthImportName {
   // Unset name, invalid in approved details.
   HEALTH_IMPORT_NAME_UNSPECIFIED = 0;
@@ -1172,9 +1191,8 @@ enum HealthImportName {
 }
 
 // Approved metadata for one import.
-// Kinds omit protected entries unless include_protected was approved. At the
-// lower level only protected_entries counts them; their times and unsupported
-// classes are excluded. Received time and both sizes describe the whole import.
+// Kinds, times and unsupported counts include protected entries. Received time
+// and both sizes describe the whole import.
 // Values, free text, source names and resource ids are excluded.
 message HealthImportDetails {
   // Exactly 16 random bytes assigned by the Ark to the import.
@@ -1188,15 +1206,15 @@ message HealthImportDetails {
   // Total bytes in the import and index files, excluding cached views.
   // Nonzero for a committed import.
   uint64 stored_size = 5;
-  // Known times of entries visible at this level, absent when none are known.
+  // Known times of all entries, absent when none are known.
   HealthTimeSpan time_span = 6;
   // Kinds grouped by category, system, code and protected-category set.
   // Sorted in that order within the wire limit.
   repeated HealthKind kinds = 7;
-  // Protected resources counted once, 0 through 2 million, at either level.
+  // Protected resources counted once, 0 through 2 million.
   // A resource in several protected categories counts once.
   uint64 protected_entries = 8;
-  // Unsupported counts visible at this level, always present.
+  // Unsupported counts including protected entries, always present.
   HealthUnsupportedCounts unsupported = 9;
 }
 
@@ -1282,7 +1300,7 @@ message HealthKind {
   // Known times of these resources, absent if unknown.
   HealthTimeSpan time_span = 7;
   // Sorted distinct protected categories, at most five.
-  // Empty for unprotected entries. Nonempty only at the approved higher level.
+  // Empty for unprotected entries.
   repeated HealthProtectedCategory protected_categories = 8;
   // Distinct resource identities absent from every other import, 0 through
   // count. These entries disappear on deletion.
@@ -1291,9 +1309,9 @@ message HealthKind {
 
 // One visible kind across all imports, joined to HealthKind by category,
 // system, code and protected-category set. The key, area and name follow
-// HealthKind's content rules and limits. Protected kinds appear only when
-// include_protected is approved. Each resource identity counts once per kind
-// across all imports; adding per-import counts would count shared entries again.
+// HealthKind's content rules and limits. Protected kinds are always included.
+// Each resource identity counts once per kind across all imports; adding
+// per-import counts would count shared entries again.
 message HealthKindOverview {
   // Clinical, measurement or signal, required to be set.
   HealthCategory category = 1;
@@ -1313,7 +1331,7 @@ message HealthKindOverview {
   repeated HealthProtectedCategory protected_categories = 8;
 }
 
-// Unsupported resource counts at the approved level.
+// Unsupported resource counts, including protected entries.
 // Each count is at most 2 million. Unplaced is a subset of other, so hosts
 // must not add it again when displaying the unsupported total.
 message HealthUnsupportedCounts {

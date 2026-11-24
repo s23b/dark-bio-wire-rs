@@ -20,7 +20,7 @@ pub struct HostToArk {
     /// the Ark. The tags are grouped by area, each area with its own range.
     #[prost(
         oneof = "host_to_ark::Content",
-        tags = "256, 257, 258, 259, 260, 513, 514, 515, 516, 517, 769, 770, 771, 772, 773, 774, 1025, 1026, 1027, 1281, 1282, 1283, 1284, 1285, 1286, 1287, 1288, 1289, 1290, 1537, 1538, 1539, 1540, 1541, 1542, 1543, 1544, 1793, 2305, 2306, 2307, 2308, 2309, 2310, 2311, 4096"
+        tags = "256, 257, 258, 259, 260, 513, 514, 515, 516, 517, 769, 770, 771, 772, 773, 774, 1025, 1026, 1027, 1281, 1282, 1283, 1284, 1285, 1286, 1287, 1288, 1289, 1290, 1537, 1538, 1539, 1540, 1541, 1542, 1543, 1544, 1793, 2305, 2306, 2307, 2308, 2309, 2310, 2311, 2312, 4096"
     )]
     pub content: ::core::option::Option<host_to_ark::Content>,
 }
@@ -162,9 +162,12 @@ pub mod host_to_ark {
         /// One 16-byte import id to delete after a prompt, without resource ids.
         #[prost(message, tag = "2310")]
         HealthDelete(super::HealthDeleteRequest),
-        /// One protected-category level to approve, without values or selectors.
+        /// Complete details, including protected kinds, after a new prompt.
         #[prost(message, tag = "2311")]
         HealthDetails(super::HealthDetailsRequest),
+        /// Current details digest, without a prompt.
+        #[prost(message, tag = "2312")]
+        HealthDigest(super::HealthDigestRequest),
         /// Unreleased messages served by development firmware only, carried opaquely
         /// so the public protocol is untouched while they are still under development.
         /// Their schema is private and production Arks refuse the envelope.
@@ -193,7 +196,7 @@ pub struct ArkToHost {
     /// request of its own. The tags are grouped by area, each area with its own range.
     #[prost(
         oneof = "ark_to_host::Content",
-        tags = "256, 257, 258, 259, 260, 513, 514, 515, 516, 517, 769, 770, 771, 772, 773, 774, 1025, 1026, 1027, 1281, 1282, 1283, 1284, 1285, 1286, 1287, 1288, 1289, 1290, 1537, 1538, 1539, 1540, 1541, 1542, 1543, 1544, 1793, 2305, 2306, 2307, 2308, 2309, 2310, 2311, 4096"
+        tags = "256, 257, 258, 259, 260, 513, 514, 515, 516, 517, 769, 770, 771, 772, 773, 774, 1025, 1026, 1027, 1281, 1282, 1283, 1284, 1285, 1286, 1287, 1288, 1289, 1290, 1537, 1538, 1539, 1540, 1541, 1542, 1543, 1544, 1793, 2305, 2306, 2307, 2308, 2309, 2310, 2311, 2312, 4096"
     )]
     pub content: ::core::option::Option<ark_to_host::Content>,
 }
@@ -338,6 +341,9 @@ pub mod ark_to_host {
         /// Approved metadata within the wire limit, without values or source names.
         #[prost(message, tag = "2311")]
         HealthDetails(super::HealthDetailsResponse),
+        /// Keyed digest of the complete details, without their content.
+        #[prost(message, tag = "2312")]
+        HealthDigest(super::HealthDigestResponse),
         /// Unreleased messages emitted by development firmware only, in response to
         /// a develop request, carried opaquely so the public protocol is untouched
         /// while they are still under development. Their schema is private.
@@ -1335,59 +1341,70 @@ pub struct HealthImportInfo {
     #[prost(enumeration = "HealthFileKind", tag = "3")]
     pub file_kind: i32,
 }
-/// Prompt request for metadata about all imports.
-/// Approval opens a window for this host wire session and this exact level.
-/// Calls at that level reuse the unexpired window without a prompt or extension.
-/// A different level requires its own decision and replaces the active window
-/// only on approval. Disconnect, lock or expiry closes access. The phone prompt
-/// allows 120s for a decision; the access window starts after approval.
-/// TODO(fhir-import-2): the host selects the level and the phone confirms it.
+/// Empty request for complete metadata about all imports and kinds of data.
+/// Requires unlocked storage and a new details prompt on every request.
+/// The Ark keeps no approval state between requests. The phone allows 120s for
+/// a decision. Its prompt states that the computer receives names, counts and
+/// date ranges, including protected categories, and may keep a copy, never values.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct HealthDetailsRequest {
-    /// Whether protected kinds may appear in the approved details.
-    #[prost(bool, tag = "1")]
-    pub include_protected: bool,
-}
-/// Complete approved metadata for each import and the kinds across all imports.
+pub struct HealthDetailsRequest {}
+/// Complete approved metadata, including protected kinds and a freshness digest.
+/// Every response requires a new details prompt, even in the same host session.
 /// An oversized complete reply returns HEALTH_ERRORS_LIMIT.
 /// Applications enforce these content rules; generated codecs do not validate
-/// string meanings, id lengths, enum membership or cross-field constraints.
+/// string meanings, byte lengths, enum membership or cross-field constraints.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct HealthDetailsResponse {
-    /// Remaining access time in seconds, rounded down, independent of prompt time.
-    /// Zero means the host must hide details; calls leave the deadline unchanged.
-    #[prost(uint32, tag = "1")]
-    pub remaining_seconds: u32,
-    /// Approved level matching the request.
-    #[prost(bool, tag = "2")]
-    pub include_protected: bool,
     /// All imports sorted as HealthListResponse, within the wire message limit.
     /// Empty if none exist.
-    #[prost(message, repeated, tag = "3")]
+    #[prost(message, repeated, tag = "1")]
     pub imports: ::prost::alloc::vec::Vec<HealthImportDetails>,
-    /// Kinds visible at this level across all imports, sorted by category, system,
-    /// code and protected-category set, as each import's kinds are.
-    #[prost(message, repeated, tag = "4")]
+    /// All kinds, including protected kinds, sorted by category, system, code
+    /// and protected-category set, as each import's kinds are.
+    #[prost(message, repeated, tag = "2")]
     pub kinds: ::prost::alloc::vec::Vec<HealthKindOverview>,
-    /// Distinct protected resource identities across all imports, at either level.
-    /// Multiple codings or protected categories count once; no dates are exposed.
-    #[prost(uint64, tag = "5")]
+    /// Distinct protected resource identities across all imports.
+    /// Multiple codings or protected categories count once.
+    #[prost(uint64, tag = "3")]
     pub protected_entries: u64,
-    /// Distinct attachment, other and invalid identities visible at this level
-    /// across all imports. Unplaced entries are already included in other.
-    /// Hidden protected entries and packaging are excluded.
-    #[prost(uint64, tag = "6")]
+    /// Distinct attachment, other and invalid identities across all imports,
+    /// including protected entries. Unplaced entries are included in other.
+    /// Packaging is excluded.
+    #[prost(uint64, tag = "4")]
     pub unsupported_entries: u64,
     /// Known times of those distinct unsupported entries, absent if unknown.
-    /// Each identity uses its newest visible unsupported copy, by export time
+    /// Each identity uses its newest unsupported copy, by export time
     /// else received time, and its last occurrence within that import.
-    #[prost(message, optional, tag = "7")]
+    #[prost(message, optional, tag = "5")]
     pub unsupported_time_span: ::core::option::Option<HealthTimeSpan>,
+    /// Exactly 32 bytes of HMAC-SHA256 over a canonical encoding of every field
+    /// in this response except digest, including all nested fields and presence.
+    /// This covers imports, kinds, names, counts, spans, protected tags and totals.
+    /// Importing, deleting or changing names or classification changes the digest.
+    /// The Ark creates and persists a secret 32-byte key once, separate from its
+    /// opaque-id key, and domain-separates this use. Keying prevents a host without
+    /// approval from testing guesses about the details against the digest.
+    #[prost(bytes = "vec", tag = "6")]
+    pub digest: ::prost::alloc::vec::Vec<u8>,
+}
+/// Empty request for the current complete details digest.
+/// Requires unlocked storage, like every health request, but never a prompt.
+/// Hosts compare it with a saved `HealthDetailsResponse` from the same Ark to
+/// check whether that copy still matches, without receiving the details again.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct HealthDigestRequest {}
+/// Keyed digest of the current complete details, returned without a prompt.
+/// Applications enforce its length; generated codecs only check wire encoding.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct HealthDigestResponse {
+    /// Exactly 32 bytes, computed as `HealthDetailsResponse.digest` over the same
+    /// complete metadata. Equal while that metadata and the Ark's key are unchanged.
+    #[prost(bytes = "vec", tag = "1")]
+    pub digest: ::prost::alloc::vec::Vec<u8>,
 }
 /// Approved metadata for one import.
-/// Kinds omit protected entries unless include_protected was approved. At the
-/// lower level only protected_entries counts them; their times and unsupported
-/// classes are excluded. Received time and both sizes describe the whole import.
+/// Kinds, times and unsupported counts include protected entries. Received time
+/// and both sizes describe the whole import.
 /// Values, free text, source names and resource ids are excluded.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct HealthImportDetails {
@@ -1407,18 +1424,18 @@ pub struct HealthImportDetails {
     /// Nonzero for a committed import.
     #[prost(uint64, tag = "5")]
     pub stored_size: u64,
-    /// Known times of entries visible at this level, absent when none are known.
+    /// Known times of all entries, absent when none are known.
     #[prost(message, optional, tag = "6")]
     pub time_span: ::core::option::Option<HealthTimeSpan>,
     /// Kinds grouped by category, system, code and protected-category set.
     /// Sorted in that order within the wire limit.
     #[prost(message, repeated, tag = "7")]
     pub kinds: ::prost::alloc::vec::Vec<HealthKind>,
-    /// Protected resources counted once, 0 through 2 million, at either level.
+    /// Protected resources counted once, 0 through 2 million.
     /// A resource in several protected categories counts once.
     #[prost(uint64, tag = "8")]
     pub protected_entries: u64,
-    /// Unsupported counts visible at this level, always present.
+    /// Unsupported counts including protected entries, always present.
     #[prost(message, optional, tag = "9")]
     pub unsupported: ::core::option::Option<HealthUnsupportedCounts>,
 }
@@ -1455,7 +1472,7 @@ pub struct HealthKind {
     #[prost(message, optional, tag = "7")]
     pub time_span: ::core::option::Option<HealthTimeSpan>,
     /// Sorted distinct protected categories, at most five.
-    /// Empty for unprotected entries. Nonempty only at the approved higher level.
+    /// Empty for unprotected entries.
     #[prost(enumeration = "HealthProtectedCategory", repeated, tag = "8")]
     pub protected_categories: ::prost::alloc::vec::Vec<i32>,
     /// Distinct resource identities absent from every other import, 0 through
@@ -1465,9 +1482,9 @@ pub struct HealthKind {
 }
 /// One visible kind across all imports, joined to HealthKind by category,
 /// system, code and protected-category set. The key, area and name follow
-/// HealthKind's content rules and limits. Protected kinds appear only when
-/// include_protected is approved. Each resource identity counts once per kind
-/// across all imports; adding per-import counts would count shared entries again.
+/// HealthKind's content rules and limits. Protected kinds are always included.
+/// Each resource identity counts once per kind across all imports; adding
+/// per-import counts would count shared entries again.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct HealthKindOverview {
     /// Clinical, measurement or signal, required to be set.
@@ -1495,7 +1512,7 @@ pub struct HealthKindOverview {
     #[prost(enumeration = "HealthProtectedCategory", repeated, tag = "8")]
     pub protected_categories: ::prost::alloc::vec::Vec<i32>,
 }
-/// Unsupported resource counts at the approved level.
+/// Unsupported resource counts, including protected entries.
 /// Each count is at most 2 million. Unplaced is a subset of other, so hosts
 /// must not add it again when displaying the unsupported total.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
@@ -2042,7 +2059,7 @@ impl HealthFileKind {
 }
 /// Content-derived import name chosen by the Ark from unprotected kinds.
 /// The first matching rule wins: single kind, all lab results, hospital stay,
-/// then health record. The name is independent of the approved details level.
+/// then health record.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
 pub enum HealthImportName {

@@ -8,7 +8,8 @@
 //!
 //! `make vectors` writes these cases to `vectors/health.json` for other clients.
 //! `make fuzz-seeds` records the same envelopes. These fixtures check the wire
-//! representation; applications enforce content limits and prompt lifetimes.
+//! representation; applications enforce content limits and prompt requirements.
+//! Digest bytes are invented, not computed from the fixture's metadata.
 
 use crate::protocol::envelope::{DecodeError, Side};
 use crate::protocol::mock::envelope;
@@ -78,9 +79,9 @@ fn summary() -> HealthImportSummary {
     }
 }
 
-/// Returns overlapping imports with a second kind at the protected level.
-fn details(include_protected: bool) -> HealthDetailsResponse {
-    // Keep public metadata identical at both approval levels
+/// Returns overlapping imports with unprotected and protected kinds and a digest.
+fn details() -> HealthDetailsResponse {
+    // Include a kind shared across two imports
     let mut kinds = vec![HealthKind {
         category: HealthCategory::Clinical.into(),
         area: HealthArea::LabResults.into(),
@@ -107,40 +108,36 @@ fn details(include_protected: bool) -> HealthDetailsResponse {
     }];
 
     // A resource in several protected categories still counts once
-    if include_protected {
-        kinds.push(HealthKind {
-            category: HealthCategory::Clinical.into(),
-            area: HealthArea::OtherObservations.into(),
-            system: "urn:example".into(),
-            code: "B".into(),
-            name: "Kind B".into(),
-            count: 2,
-            time_span: Some(time_span()),
-            unique_entries: 2,
-            protected_categories: vec![
-                HealthProtectedCategory::MentalHealth.into(),
-                HealthProtectedCategory::GeneticTests.into(),
-            ],
-        });
-        overview.push(HealthKindOverview {
-            category: HealthCategory::Clinical.into(),
-            area: HealthArea::OtherObservations.into(),
-            system: "urn:example".into(),
-            code: "B".into(),
-            name: "Kind B".into(),
-            count: 2,
-            time_span: Some(time_span()),
-            protected_categories: vec![
-                HealthProtectedCategory::MentalHealth.into(),
-                HealthProtectedCategory::GeneticTests.into(),
-            ],
-        });
-    }
+    kinds.push(HealthKind {
+        category: HealthCategory::Clinical.into(),
+        area: HealthArea::OtherObservations.into(),
+        system: "urn:example".into(),
+        code: "B".into(),
+        name: "Kind B".into(),
+        count: 2,
+        time_span: Some(time_span()),
+        unique_entries: 2,
+        protected_categories: vec![
+            HealthProtectedCategory::MentalHealth.into(),
+            HealthProtectedCategory::GeneticTests.into(),
+        ],
+    });
+    overview.push(HealthKindOverview {
+        category: HealthCategory::Clinical.into(),
+        area: HealthArea::OtherObservations.into(),
+        system: "urn:example".into(),
+        code: "B".into(),
+        name: "Kind B".into(),
+        count: 2,
+        time_span: Some(time_span()),
+        protected_categories: vec![
+            HealthProtectedCategory::MentalHealth.into(),
+            HealthProtectedCategory::GeneticTests.into(),
+        ],
+    });
 
-    // The name and aggregate protected count do not depend on approval level
+    // Return complete metadata and an opaque digest for the snapshot
     HealthDetailsResponse {
-        remaining_seconds: 120,
-        include_protected,
         imports: vec![
             HealthImportDetails {
                 import_id: import_id(),
@@ -190,10 +187,11 @@ fn details(include_protected: bool) -> HealthDetailsResponse {
         protected_entries: 2,
         unsupported_entries: 6,
         unsupported_time_span: Some(time_span()),
+        digest: (0..32).collect(),
     }
 }
 
-/// Returns golden envelopes for every health request, reply and approval level.
+/// Returns golden envelopes for every health request and reply.
 fn cases() -> Vec<Case> {
     vec![
         Case {
@@ -359,47 +357,15 @@ fn cases() -> Vec<Case> {
         Case {
             name: "details-request",
             response: false,
-            expected: Expected::Body(Ok(HealthDetailsRequest {
-                include_protected: false,
-            }
-            .into())),
+            expected: Expected::Body(Ok(HealthDetailsRequest {}.into())),
             hex: "0801ba900100",
-        },
-        Case {
-            name: "details-protected-request",
-            response: false,
-            expected: Expected::Body(Ok(HealthDetailsRequest {
-                include_protected: true,
-            }
-            .into())),
-            hex: "0801ba9001020801",
-        },
-        Case {
-            name: "details-counts-only-protected",
-            response: true,
-            expected: Expected::Body(Ok(details(false).into())),
-            hex: concat!(
-                "0801ba9001d40108781a54",
-                "0a10000102030405060708090a0b0c0d0e0f1004182a20402820",
-                "3204080a1014",
-                "3a26080110011a0b75726e3a6578616d706c652201412a064b696e642041",
-                "30033a04080a10144802",
-                "40024a080801100218032001",
-                "1a4a0a10101112131415161718191a1b1c1d1e1f1004183220402820",
-                "32040814101e",
-                "3a26080110011a0b75726e3a6578616d706c652201412a064b696e642041",
-                "30023a040814101e48014a00",
-                "2224080110011a0b75726e3a6578616d706c652201412a064b696e642041",
-                "30043a04080a101e",
-                "280230063a04080a1014",
-            ),
         },
         Case {
             name: "details-protected-kinds",
             response: true,
-            expected: Expected::Body(Ok(details(true).into())),
+            expected: Expected::Body(Ok(details().into())),
             hex: concat!(
-                "0801ba9001ad02087810011a8001",
+                "0801ba9001cb020a8001",
                 "0a10000102030405060708090a0b0c0d0e0f1004182a20402820",
                 "3204080a1014",
                 "3a26080110011a0b75726e3a6578616d706c652201412a064b696e642041",
@@ -407,37 +373,64 @@ fn cases() -> Vec<Case> {
                 "3a2a080110021a0b75726e3a6578616d706c652201422a064b696e642042",
                 "30023a04080a1014420203054802",
                 "40024a080801100218032001",
-                "1a4a0a10101112131415161718191a1b1c1d1e1f1004183220402820",
+                "0a4a0a10101112131415161718191a1b1c1d1e1f1004183220402820",
                 "32040814101e",
                 "3a26080110011a0b75726e3a6578616d706c652201412a064b696e642041",
                 "30023a040814101e48014a00",
-                "2224080110011a0b75726e3a6578616d706c652201412a064b696e642041",
+                "1224080110011a0b75726e3a6578616d706c652201412a064b696e642041",
                 "30043a04080a101e",
-                "2228080110021a0b75726e3a6578616d706c652201422a064b696e642042",
+                "1228080110021a0b75726e3a6578616d706c652201422a064b696e642042",
                 "30023a04080a101442020305",
-                "280230063a04080a1014",
+                "180220062a04080a1014",
+                "3220000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
             ),
         },
         Case {
             name: "details-empty",
             response: true,
             expected: Expected::Body(Ok(HealthDetailsResponse {
-                remaining_seconds: 1,
-                include_protected: false,
                 imports: vec![],
                 kinds: vec![],
                 protected_entries: 0,
                 unsupported_entries: 0,
                 unsupported_time_span: None,
+                digest: (32..64).collect(),
             }
             .into())),
-            hex: "0801ba9001020801",
+            hex: concat!(
+                "0801ba9001223220",
+                "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+            ),
         },
         Case {
-            name: "details-expired",
+            name: "details-missing-digest-wire-valid",
             response: true,
             expected: Expected::Body(Ok(HealthDetailsResponse::default().into())),
             hex: "0801ba900100",
+        },
+        Case {
+            name: "digest-request",
+            response: false,
+            expected: Expected::Body(Ok(HealthDigestRequest {}.into())),
+            hex: "0801c2900100",
+        },
+        Case {
+            name: "digest-response",
+            response: true,
+            expected: Expected::Body(Ok(HealthDigestResponse {
+                digest: (0..32).collect(),
+            }
+            .into())),
+            hex: concat!(
+                "0801c29001220a20",
+                "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+            ),
+        },
+        Case {
+            name: "digest-short-wire-valid",
+            response: true,
+            expected: Expected::Body(Ok(HealthDigestResponse { digest: vec![0xff] }.into())),
+            hex: "0801c29001030a01ff",
         },
         Case {
             name: "process-unknown-failure-code",
@@ -493,31 +486,49 @@ fn cases() -> Vec<Case> {
             name: "details-import-name-is-not-text",
             response: true,
             expected: Expected::Protobuf,
-            hex: "0801ba9001071a051203616263",
+            hex: "0801ba9001070a051203616263",
         },
         Case {
             name: "details-invalid-kind-name",
             response: true,
             expected: Expected::Protobuf,
-            hex: "0801ba9001071a053a032a01ff",
+            hex: "0801ba9001070a053a032a01ff",
         },
         Case {
             name: "details-invalid-overview-name",
             response: true,
             expected: Expected::Protobuf,
-            hex: "0801ba90010522032a01ff",
+            hex: "0801ba90010512032a01ff",
         },
         Case {
             name: "details-overview-area-is-not-text",
             response: true,
             expected: Expected::Protobuf,
-            hex: "0801ba9001052203120161",
+            hex: "0801ba9001051203120161",
         },
         Case {
             name: "details-truncated-overview",
             response: true,
             expected: Expected::Protobuf,
-            hex: "0801ba900103220208",
+            hex: "0801ba900103120208",
+        },
+        Case {
+            name: "details-truncated-digest",
+            response: true,
+            expected: Expected::Protobuf,
+            hex: "0801ba900103322000",
+        },
+        Case {
+            name: "digest-truncated-bytes",
+            response: true,
+            expected: Expected::Protobuf,
+            hex: "0801c29001030a2000",
+        },
+        Case {
+            name: "digest-is-not-integer",
+            response: true,
+            expected: Expected::Protobuf,
+            hex: "0801c29001020801",
         },
         Case {
             name: "delete-truncated-id",
