@@ -1142,6 +1142,17 @@ message HealthDetailsResponse {
   // Kinds visible at this level across all imports, sorted by category, system,
   // code and protected-category set, as each import's kinds are.
   repeated HealthKindOverview kinds = 4;
+  // Distinct protected resource identities across all imports, at either level.
+  // Multiple codings or protected categories count once; no dates are exposed.
+  uint64 protected_entries = 5;
+  // Distinct attachment, other and invalid identities visible at this level
+  // across all imports. Unplaced entries are already included in other.
+  // Hidden protected entries and packaging are excluded.
+  uint64 unsupported_entries = 6;
+  // Known times of those distinct unsupported entries, absent if unknown.
+  // Each identity uses its newest visible unsupported copy, by export time
+  // else received time, and its last occurrence within that import.
+  HealthTimeSpan unsupported_time_span = 7;
 }
 
 // Content-derived import name chosen by the Ark from unprotected kinds.
@@ -1264,7 +1275,7 @@ message HealthKind {
   // Empty with system for uncoded kinds.
   string code = 4;
   // Kind name, 1 through 80 characters on one line.
-  // TODO(fhir-import-2): wire names use the Ark's small terminology table.
+  // TODO(fhir-import-2): wire names use the Ark's corpus-derived terminology.
   string name = 5;
   // Distinct resource count in this import, 1 through 2 million.
   uint64 count = 6;

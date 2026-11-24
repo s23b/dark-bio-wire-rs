@@ -187,6 +187,9 @@ fn details(include_protected: bool) -> HealthDetailsResponse {
             },
         ],
         kinds: overview,
+        protected_entries: 2,
+        unsupported_entries: 6,
+        unsupported_time_span: Some(time_span()),
     }
 }
 
@@ -376,7 +379,7 @@ fn cases() -> Vec<Case> {
             response: true,
             expected: Expected::Body(Ok(details(false).into())),
             hex: concat!(
-                "0801ba9001ca0108781a54",
+                "0801ba9001d40108781a54",
                 "0a10000102030405060708090a0b0c0d0e0f1004182a20402820",
                 "3204080a1014",
                 "3a26080110011a0b75726e3a6578616d706c652201412a064b696e642041",
@@ -388,6 +391,7 @@ fn cases() -> Vec<Case> {
                 "30023a040814101e48014a00",
                 "2224080110011a0b75726e3a6578616d706c652201412a064b696e642041",
                 "30043a04080a101e",
+                "280230063a04080a1014",
             ),
         },
         Case {
@@ -395,7 +399,7 @@ fn cases() -> Vec<Case> {
             response: true,
             expected: Expected::Body(Ok(details(true).into())),
             hex: concat!(
-                "0801ba9001a302087810011a8001",
+                "0801ba9001ad02087810011a8001",
                 "0a10000102030405060708090a0b0c0d0e0f1004182a20402820",
                 "3204080a1014",
                 "3a26080110011a0b75726e3a6578616d706c652201412a064b696e642041",
@@ -411,6 +415,7 @@ fn cases() -> Vec<Case> {
                 "30043a04080a101e",
                 "2228080110021a0b75726e3a6578616d706c652201422a064b696e642042",
                 "30023a04080a101442020305",
+                "280230063a04080a1014",
             ),
         },
         Case {
@@ -421,6 +426,9 @@ fn cases() -> Vec<Case> {
                 include_protected: false,
                 imports: vec![],
                 kinds: vec![],
+                protected_entries: 0,
+                unsupported_entries: 0,
+                unsupported_time_span: None,
             }
             .into())),
             hex: "0801ba9001020801",

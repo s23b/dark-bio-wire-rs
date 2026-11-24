@@ -1369,6 +1369,20 @@ pub struct HealthDetailsResponse {
     /// code and protected-category set, as each import's kinds are.
     #[prost(message, repeated, tag = "4")]
     pub kinds: ::prost::alloc::vec::Vec<HealthKindOverview>,
+    /// Distinct protected resource identities across all imports, at either level.
+    /// Multiple codings or protected categories count once; no dates are exposed.
+    #[prost(uint64, tag = "5")]
+    pub protected_entries: u64,
+    /// Distinct attachment, other and invalid identities visible at this level
+    /// across all imports. Unplaced entries are already included in other.
+    /// Hidden protected entries and packaging are excluded.
+    #[prost(uint64, tag = "6")]
+    pub unsupported_entries: u64,
+    /// Known times of those distinct unsupported entries, absent if unknown.
+    /// Each identity uses its newest visible unsupported copy, by export time
+    /// else received time, and its last occurrence within that import.
+    #[prost(message, optional, tag = "7")]
+    pub unsupported_time_span: ::core::option::Option<HealthTimeSpan>,
 }
 /// Approved metadata for one import.
 /// Kinds omit protected entries unless include_protected was approved. At the
@@ -1431,7 +1445,7 @@ pub struct HealthKind {
     #[prost(string, tag = "4")]
     pub code: ::prost::alloc::string::String,
     /// Kind name, 1 through 80 characters on one line.
-    /// TODO(fhir-import-2): wire names use the Ark's small terminology table.
+    /// TODO(fhir-import-2): wire names use the Ark's corpus-derived terminology.
     #[prost(string, tag = "5")]
     pub name: ::prost::alloc::string::String,
     /// Distinct resource count in this import, 1 through 2 million.
